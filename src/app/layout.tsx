@@ -5,6 +5,8 @@ import { Footer } from "@/components/Footer";
 import { ContentProvider } from "@/components/edit/ContentProvider";
 import { EditBar } from "@/components/edit/EditBar";
 import { getContent } from "@/lib/store";
+import { htmlLang, UI } from "@/lib/i18n";
+import { getLang } from "@/lib/lang-server";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin", "vietnamese"] });
@@ -16,19 +18,19 @@ const instrumentSerif = Instrument_Serif({
 });
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { site } = await getContent();
+  const [{ site, no }, lang] = await Promise.all([getContent(), getLang()]);
   return {
-    title: { default: `${site.fullName} — Graphic designer`, template: `%s — ${site.fullName}` },
-    description: site.description,
+    title: { default: `${site.fullName} — ${UI[lang].role}`, template: `%s — ${site.fullName}` },
+    description: (lang === "no" && no["site.description"]) || site.description,
   };
 }
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const content = await getContent();
+  const [content, lang] = await Promise.all([getContent(), getLang()]);
   return (
-    <html lang="en">
+    <html lang={htmlLang(lang)}>
       <body className={`${inter.variable} ${instrumentSerif.variable} flex min-h-svh flex-col antialiased`}>
-        <ContentProvider initial={content}>
+        <ContentProvider initial={content} initialLang={lang}>
           <Header />
           <main className="flex-1">{children}</main>
           <Footer />

@@ -1,4 +1,3 @@
-export type Service = { title: string; body: string };
 export type Social = { label: string; href: string };
 
 export type Project = {
@@ -29,12 +28,25 @@ export type Content = {
     portrait: string;
     contactHeading: string;
     socials: Social[];
-    services: Service[];
+    /** Labels on the floating cursors in the hero. */
+    skills: string[];
     about: {
+      /** "Tell you about" + the framed word "me!" */
+      heading: string;
+      highlight: string;
       statement: string;
+      /** Main photo in the Figma-style selection frame. */
+      photo: string;
+      /** Small folders floating around the photo; hovering one shows its image. */
+      folders: { label: string; image: string }[];
+      /** App icons in the dock under the photo: short = text on the icon, name = tooltip. */
+      tools: { short: string; name: string }[];
+      /** Cards that fan out of the big folder on the second screen. */
+      cards: { title: string; body: string }[];
       punchline: [string, string];
-      images: string[];
     };
   };
   projects: Project[];
+  /** Norwegian texts, keyed by the path of the English text ("site.tagline", "projects.0.title"). */
+  no: Record<string, string>;
 };

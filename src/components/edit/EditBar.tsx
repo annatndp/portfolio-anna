@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useContent } from "./ContentProvider";
 
 export function EditBar() {
-  const { editing, dirty, save, discard } = useContent();
+  const { editing, dirty, save, discard, lang } = useContent();
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [error, setError] = useState("");
 
@@ -35,6 +35,9 @@ export function EditBar() {
         <span className="flex items-center gap-2 text-sm font-medium">
           <span className={`h-2.5 w-2.5 rounded-full ${dirty ? "bg-orange-500" : "bg-green-500"}`} />
           {error ? <span className="text-red-600">{error}</span> : dirty ? "Unsaved changes" : status === "saved" ? "Saved ✓" : "Edit mode"}
+          <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs text-accent" title="Switch language in the menu to edit the other one">
+            {lang === "no" ? "Editing: Norsk" : "Editing: English"}
+          </span>
         </span>
         <button
           type="button"

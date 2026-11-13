@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+  <!-- Illustration of a Claude Code session building this portfolio. Replace with a real screenshot anytime. -->
+  <rect width="800" height="520" rx="22" fill="#1a1a1c"/>
+  <rect width="800" height="52" rx="22" fill="#2a2a2e"/>
+  <rect y="30" width="800" height="22" fill="#2a2a2e"/>
+  <circle cx="32" cy="26" r="8" fill="#ff5f57"/>
+  <circle cx="58" cy="26" r="8" fill="#febc2e"/>
+  <circle cx="84" cy="26" r="8" fill="#28c840"/>
+  <text x="400" y="32" text-anchor="middle" fill="#9a9aa2" font-size="17">~/portfolio-anna — claude</text>
+
+  <text x="36" y="104" fill="#d97757" font-size="24" font-weight="700">✻ Claude Code</text>
+
+  <text x="36" y="156" fill="#9a9aa2" font-size="20">&gt;</text>
+  <text x="62" y="156" fill="#f2f2f2" font-size="20">Make the hero playful: Figma-style</text>
+  <text x="62" y="184" fill="#f2f2f2" font-size="20">cursors with my skills, EN / NO toggle</text>
+
+  <text x="36" y="236" fill="#d97757" font-size="20">●</text>
+  <text x="62" y="236" fill="#c9c9cf" font-size="20">Write(HeroCursors.tsx)</text>
+  <text x="36" y="270" fill="#d97757" font-size="20">●</text>
+  <text x="62" y="270" fill="#c9c9cf" font-size="20">Update(HomeView.tsx)</text>
+  <text x="36" y="304" fill="#d97757" font-size="20">●</text>
+  <text x="62" y="304" fill="#c9c9cf" font-size="20">Write(lib/i18n.ts)</text>
+
+  <text x="36" y="356" fill="#28c840" font-size="20">✓</text>
+  <text x="62" y="356" fill="#f2f2f2" font-size="20">Done. Preview at localhost:3000</text>
+
+  <rect x="36" y="410" width="728" height="58" rx="12" fill="none" stroke="#3a3a40" stroke-width="2"/>
+  <text x="58" y="446" fill="#9a9aa2" font-size="20">&gt;</text>
+  <rect x="84" y="428" width="12" height="24" fill="#f2f2f2"/>
+</svg>

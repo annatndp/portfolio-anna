@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useRef, useState } from "react";
 import { emptyImage } from "@/content/defaults";
 import { getAt } from "@/lib/path";
+import type { Content } from "@/content/types";
 import { useContent } from "./ContentProvider";
 import { uploadImage } from "./upload";
 
@@ -26,8 +27,8 @@ export function T({
   placeholder?: string;
   multiline?: boolean;
 }) {
-  const { content, editing, set } = useContent();
-  const value = String(getAt(content, path) ?? "");
+  const { editing, text, setText } = useContent();
+  const value = text(path);
 
   if (!editing) return value ? <Tag className={className}>{value}</Tag> : null;
 
@@ -49,7 +50,7 @@ export function T({
       }}
       onBlur={(e: React.FocusEvent<HTMLElement>) => {
         const next = e.currentTarget.innerText.replace(/\n+$/, "").trim();
-        if (next !== value) set(path, next);
+        if (next !== value) setText(path, next);
       }}
     >
       {value}
@@ -149,6 +150,23 @@ export function EditableImage({
   );
 }
 
+/** Keep Norwegian texts attached to the right list item after a move or delete. */
+function remapTranslations(d: Content, listPath: string, to: (n: number) => number | null) {
+  if (!d.no) return;
+  const prefix = `${listPath}.`;
+  const next: Record<string, string> = {};
+  for (const [key, val] of Object.entries(d.no)) {
+    const m = key.startsWith(prefix) ? key.slice(prefix.length).match(/^(\d+)(.*)$/) : null;
+    if (!m) {
+      next[key] = val;
+      continue;
+    }
+    const n = to(Number(m[1]));
+    if (n !== null) next[`${prefix}${n}${m[2]}`] = val;
+  }
+  d.no = next;
+}
+
 /** Small move / delete buttons for an item in a list (edit mode only). */
 export function ItemControls({
   listPath,
@@ -169,6 +187,7 @@ export function ItemControls({
       const list = getAt(d, listPath) as unknown[];
       if (to < 0 || to >= list.length) return;
       [list[index], list[to]] = [list[to], list[index]];
+      remapTranslations(d, listPath, (n) => (n === index ? to : n === to ? index : n));
     });
 
   const btn =
@@ -188,7 +207,11 @@ export function ItemControls({
         className={`${btn} hover:!bg-red-600`}
         onClick={(e) => {
           stop(e);
-          if (confirm(`Delete this ${label}?`)) update((d) => (getAt(d, listPath) as unknown[]).splice(index, 1));
+          if (confirm(`Delete this ${label}?`))
+            update((d) => {
+              (getAt(d, listPath) as unknown[]).splice(index, 1);
+              remapTranslations(d, listPath, (n) => (n === index ? null : n > index ? n - 1 : n));
+            });
         }}
       >
         ✕

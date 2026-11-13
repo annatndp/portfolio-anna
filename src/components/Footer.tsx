@@ -7,7 +7,7 @@ import { useContent } from "@/components/edit/ContentProvider";
 const linkClass = "inline-block py-2 underline-offset-4 hover:underline";
 
 export function Footer() {
-  const { content, editing, set, update } = useContent();
+  const { content, editing, set, update, ui } = useContent();
   const { site } = content;
 
   return (
@@ -15,9 +15,9 @@ export function Footer() {
       <div className="mx-auto flex min-h-40 max-w-[1800px] flex-col justify-between gap-12 px-5 py-14 sm:flex-row sm:px-10 sm:py-20 lg:px-16">
         <div className="flex flex-col justify-between gap-6">
           <p className="max-w-xs font-serif text-3xl italic leading-tight">
-            Have a project in mind?{" "}
+            {ui("footerQuestion")}{" "}
             <Link href="/contact" className="underline underline-offset-4 hover:opacity-70">
-              Let&apos;s talk.
+              {ui("footerTalk")}
             </Link>
           </p>
           <span className="font-serif text-lg italic">
@@ -61,9 +61,9 @@ export function Footer() {
             </li>
           </ul>
           <ul>
-            <li><Link href="/projects" className={linkClass}>Projects</Link></li>
-            <li><Link href="/about" className={linkClass}>About</Link></li>
-            <li><Link href="/contact" className={linkClass}>Contact</Link></li>
+            <li><Link href="/projects" className={linkClass}>{ui("projects")}</Link></li>
+            <li><Link href="/about" className={linkClass}>{ui("about")}</Link></li>
+            <li><Link href="/contact" className={linkClass}>{ui("contact")}</Link></li>
           </ul>
         </div>
       </div>

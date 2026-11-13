@@ -19,9 +19,15 @@ export function ProjectGrid() {
   }
 
   return (
-    <div className="grid gap-x-8 gap-y-14 sm:grid-cols-2">
+    // Two big columns; the right one sits lower so the cards are staggered (like the template).
+    // Translating keeps the reading order 1, 2, 3… on mobile, where it's a single column.
+    <div className="grid gap-x-10 gap-y-14 sm:grid-cols-2 sm:pb-28 lg:gap-x-16 lg:gap-y-24 lg:pb-40">
       {content.projects.map((p, i) => (
-        <Link key={p.slug} href={`/projects/${p.slug}`} className="group relative block">
+        <Link
+          key={p.slug}
+          href={`/projects/${p.slug}`}
+          className={`group relative block ${i % 2 ? "sm:translate-y-28 lg:translate-y-40" : ""}`}
+        >
           <div className="relative aspect-[4/3] overflow-hidden rounded-3xl" style={{ background: p.tint }}>
             <EditableImage
               path={`projects.${i}.cover`}
@@ -33,7 +39,7 @@ export function ProjectGrid() {
             <ItemControls listPath="projects" index={i} label="project" />
           </div>
           <div className="mt-4 flex items-baseline justify-between gap-4">
-            <T path={`projects.${i}.title`} className="font-serif text-2xl italic sm:text-3xl" placeholder="Project title" />
+            <T path={`projects.${i}.title`} className="font-serif text-3xl italic sm:text-4xl" placeholder="Project title" />
             <span className="text-sm text-gray transition-transform group-hover:translate-x-1" aria-hidden>
               →
             </span>
@@ -46,7 +52,10 @@ export function ProjectGrid() {
           />
         </Link>
       ))}
-      <AddButton onClick={addProject} className="aspect-[4/3]">
+      <AddButton
+        onClick={addProject}
+        className={`aspect-[4/3] ${content.projects.length % 2 ? "sm:translate-y-28 lg:translate-y-40" : ""}`}
+      >
         Add project
       </AddButton>
     </div>

@@ -15,7 +15,8 @@ const fieldClass =
 
 export function ContactForm() {
   const [status, setStatus] = useState<Status>("idle");
-  const { site } = useContent().content;
+  const { content, ui } = useContent();
+  const { site } = content;
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -48,8 +49,8 @@ export function ContactForm() {
   if (status === "sent") {
     return (
       <div className="rounded-2xl border border-ink bg-accent-soft p-8 text-center">
-        <p className="font-serif text-4xl italic">Thank you!</p>
-        <p className="mt-2 text-gray">Your message is on its way. I&apos;ll get back to you soon.</p>
+        <p className="font-serif text-4xl italic">{ui("formThanks")}</p>
+        <p className="mt-2 text-gray">{ui("formThanksBody")}</p>
       </div>
     );
   }
@@ -58,21 +59,21 @@ export function ContactForm() {
     <form onSubmit={onSubmit} className="space-y-5">
       <div className="grid gap-5 sm:grid-cols-2">
         <label className="block space-y-2">
-          <span className="text-sm font-medium">Name</span>
+          <span className="text-sm font-medium">{ui("formName")}</span>
           <input name="name" type="text" required autoComplete="name" className={fieldClass} />
         </label>
         <label className="block space-y-2">
-          <span className="text-sm font-medium">Email</span>
+          <span className="text-sm font-medium">{ui("formEmail")}</span>
           <input name="email" type="email" required autoComplete="email" className={fieldClass} />
         </label>
       </div>
       <label className="block space-y-2">
-        <span className="text-sm font-medium">Message</span>
+        <span className="text-sm font-medium">{ui("formMessage")}</span>
         <textarea
           name="message"
           required
           rows={6}
-          placeholder="Share your thoughts, questions, or project details here."
+          placeholder={ui("formPlaceholder")}
           className={`${fieldClass} resize-y`}
         />
       </label>
@@ -83,11 +84,11 @@ export function ContactForm() {
         disabled={status === "sending"}
         className="inline-flex items-center gap-2 rounded-full border-2 border-ink bg-ink px-7 py-3 text-base font-medium text-paper transition hover:-translate-y-0.5 hover:bg-accent hover:border-accent disabled:opacity-60"
       >
-        {status === "sending" ? "Sending…" : "Submit"} <span aria-hidden>→</span>
+        {status === "sending" ? ui("formSending") : ui("formSend")} <span aria-hidden>→</span>
       </button>
       {status === "error" && (
         <p className="text-sm text-red-600">
-          Something went wrong. Please email me directly at{" "}
+          {ui("formError")}{" "}
           <a href={`mailto:${site.email}`} className="underline">{site.email}</a>.
         </p>
       )}

@@ -35,7 +35,7 @@ function normalize(stored: Partial<Content> | null): Content {
   const site = { ...d.site, ...stored.site };
   site.about = { ...d.site.about, ...stored.site?.about };
   const projects = (stored.projects ?? d.projects).map((p) => ({ ...d.projects[0], ...p }));
-  return { site, projects };
+  return { site, projects, no: stored.no ?? d.no };
 }
 
 export const getContent = unstable_cache(async () => normalize(await readStored()), ["site-content"], {

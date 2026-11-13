@@ -4,15 +4,35 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useContent } from "@/components/edit/ContentProvider";
 
-const nav = [
-  { href: "/projects", label: "Projects" },
-  { href: "/about", label: "About" },
-  { href: "/contact", label: "Contact" },
-];
-
 export function Header() {
   const pathname = usePathname();
-  const { site } = useContent().content;
+  const { content, ui, lang, setLang } = useContent();
+  const { site } = content;
+  const nav = [
+    { href: "/projects", label: ui("projects") },
+    { href: "/about", label: ui("about") },
+  ];
+  const pill =
+    "relative inline-flex items-center justify-center px-3.5 py-2.5 text-base transition-transform hover:-translate-y-0.5 sm:px-8 sm:py-3 sm:text-2xl";
+  const Ellipse = ({ color, active }: { color: string; active: boolean }) => (
+    <svg
+      viewBox="0 0 200 80"
+      preserveAspectRatio="none"
+      aria-hidden
+      className="pointer-events-none absolute inset-0 h-full w-full [filter:url(#rough)]"
+    >
+      <ellipse
+        cx="100"
+        cy="40"
+        rx="96"
+        ry="35"
+        fill="none"
+        stroke={color}
+        strokeWidth={active ? 2 : 1.4}
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
 
   return (
     <header className="absolute inset-x-0 top-0 z-30">
@@ -47,25 +67,9 @@ export function Header() {
                 key={item.href}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
-                className="relative inline-flex items-center justify-center px-3.5 py-2.5 text-base transition-transform hover:-translate-y-0.5 sm:px-8 sm:py-3 sm:text-2xl"
+                className={pill}
               >
-                <svg
-                  viewBox="0 0 200 80"
-                  preserveAspectRatio="none"
-                  aria-hidden
-                  className="pointer-events-none absolute inset-0 h-full w-full [filter:url(#rough)]"
-                >
-                  <ellipse
-                    cx="100"
-                    cy="40"
-                    rx="96"
-                    ry="35"
-                    fill="none"
-                    stroke={color}
-                    strokeWidth={active ? 2 : 1.4}
-                    vectorEffect="non-scaling-stroke"
-                  />
-                </svg>
+                <Ellipse color={color} active={active} />
                 <span className="relative font-serif">{item.label}</span>
                 {active && (
                   <span className="absolute -bottom-2.5 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-accent sm:h-2.5 sm:w-2.5" />
@@ -73,6 +77,17 @@ export function Header() {
               </Link>
             );
           })}
+          {/* Language switch: shows the other language's name */}
+          <button
+            type="button"
+            onClick={() => setLang(lang === "en" ? "no" : "en")}
+            aria-label={ui("switchToLabel")}
+            title={ui("switchToLabel")}
+            className={`${pill} text-accent`}
+          >
+            <Ellipse color="var(--accent)" active={false} />
+            <span className="relative font-serif">{ui("switchTo")}</span>
+          </button>
         </nav>
       </div>
     </header>
