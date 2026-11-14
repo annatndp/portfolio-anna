@@ -1,13 +1,13 @@
 // App icons for the About-page dock. The icon is picked from the tool's name;
 // unknown tools fall back to a colored square with the short text.
 
-const box = "flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl shadow sm:h-11 sm:w-11";
+const box = "flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg shadow sm:h-11 sm:w-11 sm:rounded-xl";
 
 /** Adobe-style tile: dark square, two colored letters, thin colored border. */
 function Adobe({ text, bg, fg }: { text: string; bg: string; fg: string }) {
   return (
     <div className={box} style={{ background: bg, boxShadow: `inset 0 0 0 1.5px ${fg}` }}>
-      <span className="text-[15px] font-semibold tracking-tight" style={{ color: fg }}>
+      <span className="text-[12px] font-semibold tracking-tight sm:text-[15px]" style={{ color: fg }}>
         {text}
       </span>
     </div>

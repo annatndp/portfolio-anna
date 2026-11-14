@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Contact now lives at the bottom of the About page.
+  async redirects() {
+    return [{ source: "/contact", destination: "/about#contact", permanent: true }];
+  },
   images: {
     // SVG placeholders are our own files, so allowing SVG is safe here.
     dangerouslyAllowSVG: true,

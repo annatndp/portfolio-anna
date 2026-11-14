@@ -28,7 +28,7 @@ export function ProjectGrid() {
           href={`/projects/${p.slug}`}
           className={`group relative block ${i % 2 ? "sm:translate-y-28 lg:translate-y-40" : ""}`}
         >
-          <div className="relative aspect-[4/3] overflow-hidden rounded-3xl" style={{ background: p.tint }}>
+          <div className="relative aspect-[4/5] overflow-hidden rounded-3xl sm:aspect-[4/3]" style={{ background: p.tint }}>
             <EditableImage
               path={`projects.${i}.cover`}
               alt={p.title}
@@ -54,7 +54,7 @@ export function ProjectGrid() {
       ))}
       <AddButton
         onClick={addProject}
-        className={`aspect-[4/3] ${content.projects.length % 2 ? "sm:translate-y-28 lg:translate-y-40" : ""}`}
+        className={`aspect-[4/5] sm:aspect-[4/3] ${content.projects.length % 2 ? "sm:translate-y-28 lg:translate-y-40" : ""}`}
       >
         Add project
       </AddButton>

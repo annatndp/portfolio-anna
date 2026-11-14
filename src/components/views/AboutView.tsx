@@ -11,10 +11,11 @@ import { RichT } from "@/components/edit/RichText";
 const PASTEL = ["#c9d6ff", "#ffd1e1", "#e6f9a8", "#e3d4ff", "#ffe0c2", "#c8f0ee", "#fff3a8"];
 
 // Where the small folders sit around the photo (desktop), and their float timing.
+// Mobile spots stay inside the screen; from sm they move out around the photo.
 const FOLDER_SPOTS = [
-  "right-0 sm:right-[-6%] top-[2%]",
-  "left-[-8%] bottom-[22%]",
-  "right-[-4%] bottom-[26%]",
+  "right-0 top-[2%] sm:right-[-6%]",
+  "left-0 bottom-[30%] sm:left-[-8%] sm:bottom-[22%]",
+  "right-0 bottom-[34%] sm:right-[-4%] sm:bottom-[26%]",
 ];
 
 const DOTS = {
@@ -55,11 +56,14 @@ function useCardsFromFolder() {
       }
       const dx = fx - (x + card.offsetWidth / 2);
       const dy = fy - (y + card.offsetHeight / 2);
-      const small = 210 / card.offsetWidth;
-      const spread = (i - (cards().length - 1) / 2) * 80; // lifted cards fan left / right like in a Figma folder animation
+      // Tucked size: about 210px wide; on a phone the cards are tall, so also cap the height to stay inside the folder.
+      const small = Math.min(210 / card.offsetWidth, wide.matches ? Infinity : 170 / card.offsetHeight);
+      // Lifted cards fan left / right like in a Figma folder animation (less on a phone, so they stay on screen).
+      const spread = (i - (cards().length - 1) / 2) * (wide.matches ? 80 : 34);
+      const lift = wide.matches ? 170 : 110;
       return {
         tucked: `translate(${dx}px, ${dy}px) rotate(${TILT[i % TILT.length]}deg) scale(${small})`,
-        lifted: `translate(${dx + spread}px, ${dy - 170}px) rotate(${TILT[i % TILT.length] * 1.6}deg) scale(${small * 1.35})`,
+        lifted: `translate(${dx + spread}px, ${dy - lift}px) rotate(${TILT[i % TILT.length] * 1.6}deg) scale(${small * 1.35})`,
       };
     };
 
@@ -100,7 +104,7 @@ function useCardsFromFolder() {
 
     const check = (animate = true) => {
       const vh = window.innerHeight;
-      if (reduce || !wide.matches) return open !== true && apply(true, false);
+      if (reduce) return open !== true && apply(true, false);
       const folderTop = el.querySelector<HTMLElement>("[data-folder]")!.getBoundingClientRect().top;
       // Open as soon as the folder is on screen; close when it drops back to the bottom edge.
       if (open === null) apply(folderTop < vh * 0.88, false); // first check: no animation, just pick a side
@@ -157,15 +161,15 @@ function Arrow({ className = "", style }: { className?: string; style?: React.CS
 /** Mac-style blue folder; on hover the front tips open and the image inside peeks out. */
 function MiniFolder({ i, image, editing }: { i: number; image: string; editing: boolean }) {
   return (
-    <div className="group/folder flex w-24 flex-col items-center sm:w-28">
-      <div className="relative h-[72px] w-full sm:h-[84px]">
+    <div className="group/folder flex w-16 flex-col items-center sm:w-28">
+      <div className="relative h-[48px] w-full sm:h-[84px]">
         {/* back + tab */}
         <div className="absolute inset-x-0 bottom-0 top-2 rounded-lg bg-[#5aaef0]" />
-        <div className="absolute left-0 top-0 h-4 w-[42%] rounded-t-lg bg-[#5aaef0]" />
+        <div className="absolute left-0 top-0 h-3 w-[42%] rounded-t-md bg-[#5aaef0] sm:h-4 sm:rounded-t-lg" />
         {/* the image inside */}
         <div
           className={`absolute inset-x-2 top-3 h-[70%] overflow-hidden rounded-md bg-paper shadow transition-transform duration-500 ease-[cubic-bezier(.34,1.56,.64,1)] ${
-            editing ? "-translate-y-6 -rotate-3" : "group-hover/folder:-translate-y-7 group-hover/folder:-rotate-6"
+            editing ? "-translate-y-4 -rotate-3 sm:-translate-y-6" : "group-hover/folder:-translate-y-5 group-hover/folder:-rotate-6 sm:group-hover/folder:-translate-y-7"
           }`}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -178,10 +182,81 @@ function MiniFolder({ i, image, editing }: { i: number; image: string; editing: 
       </div>
       <T
         path={`site.about.folders.${i}.label`}
-        className="mt-2 rounded bg-paper/80 px-1.5 py-0.5 font-mono text-[11px] text-ink"
+        className="mt-1.5 whitespace-nowrap rounded bg-paper/80 px-1 py-0.5 font-mono text-[9px] text-ink sm:mt-2 sm:px-1.5 sm:text-[11px]"
         placeholder="folder_name"
       />
     </div>
+  );
+}
+
+/** Last card: email + social links (the same links as in the footer). */
+function InfoCard({ index }: { index: number }) {
+  const { content, editing, set, update, ui } = useContent();
+  const { site } = content;
+  const color = PASTEL[index % PASTEL.length];
+  const link = "underline decoration-1 underline-offset-4 hover:text-accent";
+  return (
+    <article
+      id="contact"
+      data-card
+      className="group/card relative origin-center scroll-mt-24 rounded-3xl border border-ink/10 bg-paper shadow-xl hover:z-10 sm:col-span-2"
+      style={{ boxShadow: `0 12px 36px ${color}` }}
+    >
+      <div className="transition-transform duration-300 group-hover/card:-translate-y-2">
+        <div className="flex items-center gap-2 rounded-t-3xl px-7 py-4" style={{ background: color }}>
+          <span className="h-3 w-3 rounded-full bg-ink/20" />
+          <span className="h-3 w-3 rounded-full bg-ink/20" />
+          <span className="h-3 w-3 rounded-full bg-ink/20" />
+          <span className="ml-2 truncate font-mono text-sm text-ink/60 lg:text-base">{ui("info").toLowerCase()}.txt</span>
+        </div>
+        <div className="p-8 lg:p-10">
+          <h3 className="font-serif text-5xl italic lg:text-[64px] lg:leading-[1.05]">{ui("info")}</h3>
+          <dl className="mt-6 grid gap-6 text-lg text-ink/75 sm:grid-cols-[auto_1fr] sm:gap-x-12 lg:text-[21px]">
+            <dt className="font-mono text-sm uppercase tracking-widest text-gray sm:pt-1.5">{ui("formEmail")}</dt>
+            <dd className="-mt-4 sm:mt-0">
+              {editing ? (
+                <T path="site.email" placeholder="you@email.com" />
+              ) : (
+                <a href={`mailto:${site.email}`} className={`${link} break-all`}>
+                  {site.email}
+                </a>
+              )}
+            </dd>
+            <dt className="font-mono text-sm uppercase tracking-widest text-gray sm:pt-1.5">Social</dt>
+            <dd className="-mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 sm:mt-0">
+              {site.socials.map((s, i) =>
+                editing ? (
+                  <span key={i} className="relative flex items-center gap-2 pr-24">
+                    <T path={`site.socials.${i}.label`} placeholder="Name" />
+                    <button
+                      type="button"
+                      title={s.href}
+                      onClick={() => {
+                        const href = prompt(`Link for ${s.label}:`, s.href);
+                        if (href !== null) set(`site.socials.${i}.href`, href.trim());
+                      }}
+                      className="rounded-full border border-ink/30 px-2 py-0.5 text-xs hover:bg-ink hover:text-paper"
+                    >
+                      link
+                    </button>
+                    <ItemControls listPath="site.socials" index={i} label="link" className="right-0 top-1/2 -translate-y-1/2 scale-75" />
+                  </span>
+                ) : (
+                  <a key={i} href={s.href} target="_blank" rel="noreferrer" className={link}>
+                    {s.label}
+                  </a>
+                ),
+              )}
+              {editing && (
+                <AddButton className="!p-2" onClick={() => update((d) => void d.site.socials.push({ label: "New link", href: "#" }))}>
+                  Add link
+                </AddButton>
+              )}
+            </dd>
+          </dl>
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -224,9 +299,9 @@ export function AboutView() {
   const fanRef = useCardsFromFolder();
 
   return (
-    <div className="relative" style={DOTS}>
+    <div className="relative overflow-x-clip" style={DOTS}>
       {/* ───────── Screen 1: the desktop ───────── */}
-      <section className="mx-auto grid max-w-[1400px] items-center gap-16 px-5 pb-4 pt-32 sm:px-10 lg:grid-cols-[1fr_1.1fr] lg:gap-10 lg:px-16">
+      <section className="mx-auto grid max-w-[1400px] items-center gap-16 px-5 pb-4 pt-32 sm:px-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-10 lg:px-16 [&>*]:min-w-0">
         <div>
           <div className="mb-6 flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-accent" />
@@ -284,7 +359,7 @@ export function AboutView() {
           </div>
 
           {about.folders.slice(0, 3).map((f, i) => (
-            <div key={i} className={`absolute ${FOLDER_SPOTS[i]} ${i > 0 ? "hidden sm:block" : ""}`}>
+            <div key={i} className={`absolute z-[1] ${FOLDER_SPOTS[i]}`}>
               <div style={{ animation: `cursor-drift ${9 + i * 1.4}s ease-in-out ${-i * 2}s infinite` }}>
                 <div style={{ animation: `about-pop .5s cubic-bezier(.34,1.56,.64,1) ${0.8 + i * 0.12}s both` }}>
                   <MiniFolder i={i} image={f.image} editing={editing} />
@@ -294,7 +369,7 @@ export function AboutView() {
           ))}
 
           {/* Dock: icons grow like the macOS dock on hover */}
-          <div className="relative z-10 mx-auto mt-16 flex w-fit items-end gap-2 rounded-2xl border border-ink/10 bg-paper/70 px-3 py-2 shadow-lg backdrop-blur-md">
+          <div className="relative z-10 mx-auto mt-16 flex w-fit max-w-full flex-wrap items-end justify-center gap-1 rounded-2xl border border-ink/10 bg-paper/70 px-2 py-2 shadow-lg backdrop-blur-md sm:gap-2 sm:px-3">
             {about.tools.map((t, i) => (
               <div
                 key={i}
@@ -392,6 +467,7 @@ export function AboutView() {
                 </div>
               </article>
             ))}
+            <InfoCard index={Math.min(about.cards.length, 5)} />
           </div>
 
           {editing && <WidthHandle />}

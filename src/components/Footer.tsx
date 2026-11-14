@@ -57,7 +57,7 @@ export function Footer() {
           <ul>
             <li><Link href="/projects" className={linkClass}>{ui("projects")}</Link></li>
             <li><Link href="/about" className={linkClass}>{ui("about")}</Link></li>
-            <li><Link href="/contact" className={linkClass}>{ui("contact")}</Link></li>
+            <li><Link href="/about#contact" className={linkClass}>{ui("contact")}</Link></li>
           </ul>
         </div>
       </div>

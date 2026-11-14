@@ -5,13 +5,14 @@ import { AddButton, ItemControls, T } from "@/components/edit/Editable";
 import { useContent } from "@/components/edit/ContentProvider";
 
 // Where each cursor sits in the hero (% of width/height), its color and how strongly it follows the mouse.
+// mx/my = position on phones (only the first 4 show there), kept clear of the menu, heading and screen edges.
 const SLOTS = [
-  { x: 10, y: 20, bg: "#002fff", fg: "#fff", depth: 28 },
-  { x: 76, y: 16, bg: "#ff6b9a", fg: "#fff", depth: -22 },
-  { x: 4, y: 64, bg: "#c8f169", fg: "#050505", depth: -32 },
-  { x: 84, y: 67, bg: "#ff8a3d", fg: "#050505", depth: 24 },
-  { x: 20, y: 84, bg: "#8b5cf6", fg: "#fff", depth: 18 },
-  { x: 66, y: 86, bg: "#a8dadc", fg: "#050505", depth: -18 },
+  { x: 10, y: 20, mx: 5, my: 17, bg: "#002fff", fg: "#fff", depth: 28 },
+  { x: 76, y: 16, mx: 40, my: 12, bg: "#ff6b9a", fg: "#fff", depth: -22 },
+  { x: 4, y: 64, mx: 4, my: 62, bg: "#c8f169", fg: "#050505", depth: -32 },
+  { x: 84, y: 67, mx: 56, my: 80, bg: "#ff8a3d", fg: "#050505", depth: 24 },
+  { x: 20, y: 84, mx: 20, my: 84, bg: "#8b5cf6", fg: "#fff", depth: 18 },
+  { x: 66, y: 86, mx: 66, my: 86, bg: "#a8dadc", fg: "#050505", depth: -18 },
 ];
 
 function Arrow({ color }: { color: string }) {
@@ -95,10 +96,12 @@ export function HeroCursors() {
         return (
           <div
             key={i}
-            className={`absolute transition-transform duration-700 ease-out ${i >= 4 ? "hidden sm:block" : ""}`}
+            className={`absolute left-[var(--mx)] top-[var(--my)] transition-transform duration-700 ease-out sm:left-[var(--x)] sm:top-[var(--y)] ${i >= 3 ? "hidden sm:block" : ""}`}
             style={{
-              left: `${s.x}%`,
-              top: `${s.y}%`,
+              ["--x" as string]: `${s.x}%`,
+              ["--y" as string]: `${s.y}%`,
+              ["--mx" as string]: `${s.mx}%`,
+              ["--my" as string]: `${s.my}%`,
               transform: `translate(calc(var(--mx, 0) * ${s.depth}px * 2), calc(var(--my, 0) * ${s.depth}px * 2))`,
             }}
           >
