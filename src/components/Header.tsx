@@ -6,8 +6,7 @@ import { useContent } from "@/components/edit/ContentProvider";
 
 export function Header() {
   const pathname = usePathname();
-  const { content, ui, lang, setLang } = useContent();
-  const { site } = content;
+  const { ui, lang, setLang } = useContent();
   const nav = [
     { href: "/", label: ui("home") },
     { href: "/projects", label: ui("projects") },
@@ -47,17 +46,7 @@ export function Header() {
         </defs>
       </svg>
 
-      <div className="mx-auto flex max-w-[1800px] items-center justify-between px-5 py-5 sm:px-10 lg:px-16">
-        <Link
-          href="/"
-          aria-label={`${site.fullName} — home`}
-          className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-ink font-serif text-xl italic transition-transform duration-500 hover:-rotate-12 sm:h-12 sm:w-12"
-        >
-          {site.fullName
-            .split(" ")
-            .map((w) => w[0])
-            .join("")}
-        </Link>
+      <div className="mx-auto flex max-w-[1800px] items-center justify-end px-5 py-5 sm:px-10 lg:px-16">
 
         <nav className="flex items-center gap-0.5 sm:gap-5">
           {nav.map((item) => {
