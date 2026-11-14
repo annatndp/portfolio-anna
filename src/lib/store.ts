@@ -6,9 +6,10 @@ import { defaultContent } from "@/content/defaults";
 import type { Content } from "@/content/types";
 
 // Where edits are stored:
-// - On Vercel (BLOB_READ_WRITE_TOKEN set): Vercel Blob.
-// - Locally without the token: .data/content.json and public/uploads/.
-const blobEnabled = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+// - On Vercel with a connected Blob store: Vercel Blob. Older connections add
+//   BLOB_READ_WRITE_TOKEN; newer ones add BLOB_STORE_ID and sign in with Vercel OIDC.
+// - Locally without either: .data/content.json and public/uploads/.
+const blobEnabled = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
 const BLOB_KEY = "content/content.json";
 const LOCAL_FILE = path.join(process.cwd(), ".data", "content.json");
 const LOCAL_UPLOADS = path.join(process.cwd(), "public", "uploads");
