@@ -43,6 +43,8 @@ export type Content = {
       tools: { short: string; name: string }[];
       /** Cards that fan out of the big folder on the second screen. */
       cards: { title: string; body: string }[];
+      /** Max width of the 2 × 2 card grid in px (drag handle in edit mode). */
+      cardsWidth: number;
       punchline: [string, string];
     };
   };

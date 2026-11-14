@@ -14,12 +14,6 @@ export function Footer() {
     <footer className={`border-t-2 border-ink bg-accent-soft ${editing ? "pb-24" : ""}`}>
       <div className="mx-auto flex min-h-40 max-w-[1800px] flex-col justify-between gap-12 px-5 py-14 sm:flex-row sm:px-10 sm:py-20 lg:px-16">
         <div className="flex flex-col justify-between gap-6">
-          <p className="max-w-xs font-serif text-3xl italic leading-tight">
-            {ui("footerQuestion")}{" "}
-            <Link href="/contact" className="underline underline-offset-4 hover:opacity-70">
-              {ui("footerTalk")}
-            </Link>
-          </p>
           <span className="font-serif text-lg italic">
             © {new Date().getFullYear()} {site.fullName}
           </span>

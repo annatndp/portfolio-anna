@@ -18,7 +18,7 @@ export function HomeView() {
           <T path="site.name" className="font-serif font-normal italic" placeholder="Name" />
           <span className="font-serif font-normal italic">,</span>{" "}
           <span className="relative mx-1 inline-block h-[0.85em] w-[1.5em] translate-y-[0.08em] overflow-hidden rounded-full border-2 border-ink align-baseline">
-            <EditableImage path="site.portrait" alt={site.fullName} priority sizes="200px" />
+            <EditableImage path="site.portrait" alt={site.fullName} priority sizes="200px" className="object-cover object-[50%_35%]" />
           </span>
           <br />
           <Flower className="mr-3 h-[0.7em] w-[0.7em] -translate-y-[0.06em] cursor-pointer" />

@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { emptyImage } from "@/content/defaults";
 import { AddButton, EditableImage, ItemControls, T } from "@/components/edit/Editable";
 import { useContent } from "@/components/edit/ContentProvider";
 import { ToolIcon } from "@/components/ToolIcon";
+import { RichT } from "@/components/edit/RichText";
 
 // Same pastel palette as the hero cursors.
 const PASTEL = ["#c9d6ff", "#ffd1e1", "#e6f9a8", "#e3d4ff", "#ffe0c2", "#c8f0ee", "#fff3a8"];
@@ -22,18 +22,106 @@ const DOTS = {
   backgroundSize: "22px 22px",
 };
 
-/** True once the element has scrolled into view (stays true). */
-function useInView<T extends Element>(threshold = 0.35) {
-  const ref = useRef<T>(null);
-  const [seen, setSeen] = useState(false);
+/**
+ * The cards start as small papers tucked in the folder. When the folder section is
+ * scrolled into view they burst out (one quick animation) into the 2 × 2 grid.
+ * Scrolling back up sends them back into the folder.
+ */
+function useCardsFromFolder() {
+  const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = ref.current;
-    if (!el || seen) return;
-    const io = new IntersectionObserver(([e]) => e.isIntersecting && setSeen(true), { threshold });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [seen, threshold]);
-  return [ref, seen] as const;
+    if (!el) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const wide = window.matchMedia("(min-width: 640px)");
+    const TILT = [-9, -4, 4, 9, 0];
+    // Spring curve (damping 0.62): quick start, soft ~8% overshoot, settles — like a macOS Dock stack.
+    const SPRING = CSS.supports("transition-timing-function", "linear(0, 1)")
+      ? "linear(0, 0.02, 0.073, 0.149, 0.24, 0.339, 0.441, 0.541, 0.636, 0.723, 0.801, 0.868, 0.926, 0.973, 1.01, 1.039, 1.059, 1.073, 1.081, 1.083, 1.083, 1.079, 1.073, 1.065, 1.057, 1.049, 1.04, 1.032, 1.025, 1.018, 1.012, 1.007, 1.003, 1, 0.997, 0.995, 0.994, 0.993, 0.993, 0.993, 0.993, 0.994, 0.994, 0.995, 0.996, 0.996, 0.997, 0.998, 1)"
+      : "cubic-bezier(.22,1.2,.36,1)";
+    const cards = () => [...el.querySelectorAll<HTMLElement>("[data-card]")];
+    let open: boolean | null = null;
+
+    // Where each card sits relative to the folder: tucked inside it, or lifted just above it.
+    const poses = (card: HTMLElement, i: number) => {
+      const folder = el.querySelector<HTMLElement>("[data-folder]")!;
+      const fx = folder.offsetLeft + folder.offsetWidth / 2;
+      const fy = folder.offsetTop + folder.offsetHeight * 0.3; // a bit high, so they peek out
+      let x = card.offsetLeft;
+      let y = card.offsetTop;
+      for (let par = card.offsetParent as HTMLElement | null; par && par !== el; par = par.offsetParent as HTMLElement | null) {
+        x += par.offsetLeft;
+        y += par.offsetTop;
+      }
+      const dx = fx - (x + card.offsetWidth / 2);
+      const dy = fy - (y + card.offsetHeight / 2);
+      const small = 210 / card.offsetWidth;
+      const spread = (i - (cards().length - 1) / 2) * 80; // lifted cards fan left / right like in a Figma folder animation
+      return {
+        tucked: `translate(${dx}px, ${dy}px) rotate(${TILT[i % TILT.length]}deg) scale(${small})`,
+        lifted: `translate(${dx + spread}px, ${dy - 170}px) rotate(${TILT[i % TILT.length] * 1.6}deg) scale(${small * 1.35})`,
+      };
+    };
+
+    const running = new Map<HTMLElement, Animation>();
+
+    const apply = (next: boolean, animate: boolean) => {
+      open = next;
+      el.dataset.open = next ? "1" : "0"; // tips the folder's front flap open (CSS)
+      cards().forEach((card, i, all) => {
+        const { tucked, lifted } = poses(card, i);
+        const end = next ? "none" : tucked;
+        // Start from wherever the card is right now (also mid-animation).
+        const from = getComputedStyle(card).transform;
+        running.get(card)?.cancel();
+        card.style.transform = end;
+        if (!animate) return;
+        const anim = card.animate(
+          next
+            ? [
+                // 1) rise straight out of the folder, 2) spring out to its spot in the grid
+                { transform: from, easing: "cubic-bezier(.2,.7,.3,1)" },
+                { transform: lifted, offset: 0.28, easing: SPRING },
+                { transform: end },
+              ]
+            : [
+                // back up above the folder, then drop in
+                { transform: from, easing: "cubic-bezier(.4,0,.6,1)" },
+                { transform: lifted, offset: 0.55, easing: "cubic-bezier(.5,0,.75,0)" },
+                { transform: end },
+              ],
+          next
+            ? { duration: 900, delay: i * 55, fill: "backwards" }
+            : { duration: 520, delay: (all.length - 1 - i) * 40, fill: "backwards" },
+        );
+        running.set(card, anim);
+      });
+    };
+
+    const check = (animate = true) => {
+      const vh = window.innerHeight;
+      if (reduce || !wide.matches) return open !== true && apply(true, false);
+      const folderTop = el.querySelector<HTMLElement>("[data-folder]")!.getBoundingClientRect().top;
+      // Open as soon as the folder is on screen; close when it drops back to the bottom edge.
+      if (open === null) apply(folderTop < vh * 0.88, false); // first check: no animation, just pick a side
+      else if (folderTop < vh * 0.85 && open !== true) apply(true, animate);
+      else if (folderTop > vh * 0.92 && open !== false) apply(false, animate);
+    };
+
+    check(false);
+    const onScroll = () => check();
+    const onResize = () => {
+      open = null;
+      check(false);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+    };
+  }, []);
+  return ref;
 }
 
 /** Figma-style selection handles: corner dots + pill handles on the edges. */
@@ -67,7 +155,7 @@ function Arrow({ className = "", style }: { className?: string; style?: React.CS
 }
 
 /** Mac-style blue folder; on hover the front tips open and the image inside peeks out. */
-function MiniFolder({ i, label, image, editing }: { i: number; label: string; image: string; editing: boolean }) {
+function MiniFolder({ i, image, editing }: { i: number; image: string; editing: boolean }) {
   return (
     <div className="group/folder flex w-24 flex-col items-center sm:w-28">
       <div className="relative h-[72px] w-full sm:h-[84px]">
@@ -97,16 +185,48 @@ function MiniFolder({ i, label, image, editing }: { i: number; label: string; im
   );
 }
 
+/** Edit mode: drag the right edge of the card grid to make the cards wider or narrower. */
+function WidthHandle() {
+  const { content, set } = useContent();
+  const width = content.site.about.cardsWidth || 1240;
+  const start = (e: React.PointerEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    const box = e.currentTarget.parentElement!.getBoundingClientRect();
+    const center = box.left + box.width / 2;
+    const move = (ev: PointerEvent) => {
+      const next = Math.round(Math.min(2000, Math.max(640, 2 * (ev.clientX - center))) / 10) * 10;
+      set("site.about.cardsWidth", next);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+  return (
+    <button
+      type="button"
+      onPointerDown={start}
+      title="Drag to change the card width"
+      className="absolute -right-5 bottom-0 top-[260px] z-20 flex w-3 cursor-ew-resize justify-center rounded-full bg-accent/80 hover:bg-accent"
+    >
+      <span className="absolute right-5 top-0 whitespace-nowrap rounded-full bg-accent px-2 py-1 text-xs font-medium text-paper shadow">
+        ↔ {width}px
+      </span>
+    </button>
+  );
+}
+
 export function AboutView() {
   const { content, editing, update, ui, text } = useContent();
   const about = content.site.about;
-  const [fanRef, fanOpen] = useInView<HTMLDivElement>();
-  const open = fanOpen || editing;
+  const fanRef = useCardsFromFolder();
 
   return (
     <div className="relative" style={DOTS}>
       {/* ───────── Screen 1: the desktop ───────── */}
-      <section className="mx-auto grid min-h-svh max-w-[1400px] items-center gap-16 px-5 pb-16 pt-32 sm:px-10 lg:grid-cols-[1fr_1.1fr] lg:gap-10 lg:px-16">
+      <section className="mx-auto grid max-w-[1400px] items-center gap-16 px-5 pb-4 pt-32 sm:px-10 lg:grid-cols-[1fr_1.1fr] lg:gap-10 lg:px-16">
         <div>
           <div className="mb-6 flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-accent" />
@@ -167,7 +287,7 @@ export function AboutView() {
             <div key={i} className={`absolute ${FOLDER_SPOTS[i]} ${i > 0 ? "hidden sm:block" : ""}`}>
               <div style={{ animation: `cursor-drift ${9 + i * 1.4}s ease-in-out ${-i * 2}s infinite` }}>
                 <div style={{ animation: `about-pop .5s cubic-bezier(.34,1.56,.64,1) ${0.8 + i * 0.12}s both` }}>
-                  <MiniFolder i={i} label={f.label} image={f.image} editing={editing} />
+                  <MiniFolder i={i} image={f.image} editing={editing} />
                 </div>
               </div>
             </div>
@@ -228,72 +348,64 @@ export function AboutView() {
         </section>
       )}
 
-      {/* ───────── Screen 2: the folder that fans out ───────── */}
-      <section className="flex min-h-svh flex-col items-center justify-center overflow-hidden px-5 py-24">
-        <div ref={fanRef} className="relative w-full max-w-5xl">
-          {/* Cards: tucked into the folder until scrolled into view, then fanned out */}
-          <div className="relative z-0 grid gap-4 sm:grid-cols-2 lg:block lg:h-[360px]">
-            {about.cards.slice(0, 4).map((c, i, all) => {
-              const mid = (all.length - 1) / 2;
-              const angle = (i - mid) * 15.5;
-              return (
-                <article
-                  key={i}
-                  className={`group/card relative rounded-2xl border border-ink/10 bg-paper shadow-xl transition-[transform,opacity] duration-[900ms] ease-[cubic-bezier(.34,1.3,.64,1)] lg:absolute lg:bottom-0 lg:left-1/2 lg:w-[228px] lg:-ml-[114px] lg:origin-[50%_320%] lg:[transform:var(--fan)] lg:hover:z-10 ${
-                    open ? "" : "lg:opacity-0"
-                  }`}
-                  style={{
-                    // Only used from lg up (see the class); on phones the cards are a plain grid.
-                    ["--fan" as string]: open ? `rotate(${angle}deg)` : "translateY(140px) rotate(0deg) scale(.85)",
-                    transitionDelay: `${i * 90}ms`,
-                    boxShadow: `0 10px 30px ${PASTEL[i % PASTEL.length]}`,
-                  }}
-                >
-                  <div className="transition-transform duration-300 lg:group-hover/card:-translate-y-5">
-                    <div
-                      className="flex items-center gap-1.5 rounded-t-2xl px-4 py-2.5"
-                      style={{ background: PASTEL[i % PASTEL.length] }}
-                    >
-                      <span className="h-2.5 w-2.5 rounded-full bg-ink/20" />
-                      <span className="h-2.5 w-2.5 rounded-full bg-ink/20" />
-                      <span className="h-2.5 w-2.5 rounded-full bg-ink/20" />
-                      <span className="ml-2 truncate font-mono text-[11px] text-ink/60">
-                        {(text(`site.about.cards.${i}.title`) || "untitled").toLowerCase().replace(/\s+/g, "_")}.txt
-                      </span>
-                    </div>
-                    <div className="p-5 pb-16">
-                      <T path={`site.about.cards.${i}.title`} as="h3" className="block font-serif text-3xl italic" placeholder="Title" />
-                      <T
+      {/* ───────── Screen 2: cards jump out of a small zip folder as you scroll ───────── */}
+      {/* Folder section: fills the screen and snaps into view, then the cards burst out. */}
+      <section className="relative px-5 pb-24 pt-10 sm:px-10">
+        <div className="w-full">
+        <div ref={fanRef} className="group/fold relative mx-auto w-full" style={{ maxWidth: about.cardsWidth || 1240 }}>
+          {/* Small folder: back + tab behind the cards, frosted front in front of them */}
+          <div data-folder className="relative mx-auto h-[190px] w-[250px]">
+            <div className="absolute left-0 top-0 h-9 w-[40%] rounded-t-[14px] bg-[#4ea4ea]" />
+            <div className="absolute inset-x-0 bottom-0 top-6 rounded-[14px] rounded-tl-none bg-gradient-to-b from-[#4ea4ea] to-[#3d93dc]" />
+          </div>
+
+          <div className="relative z-[1] mt-12 grid gap-6 sm:grid-cols-2 lg:gap-9">
+            {about.cards.slice(0, 5).map((c, i, all) => (
+              <article
+                key={i}
+                data-card
+                className={`group/card relative origin-center rounded-3xl ${i === 4 && all.length === 5 ? "sm:col-span-2" : ""} border border-ink/10 bg-paper shadow-xl hover:z-10`}
+                style={{ boxShadow: `0 12px 36px ${PASTEL[i % PASTEL.length]}` }}
+              >
+                <div className="transition-transform duration-300 group-hover/card:-translate-y-2">
+                  <div
+                    className="flex items-center gap-2 rounded-t-3xl px-7 py-4"
+                    style={{ background: PASTEL[i % PASTEL.length] }}
+                  >
+                    <span className="h-3 w-3 rounded-full bg-ink/20" />
+                    <span className="h-3 w-3 rounded-full bg-ink/20" />
+                    <span className="h-3 w-3 rounded-full bg-ink/20" />
+                    <span className="ml-2 truncate font-mono text-sm text-ink/60 lg:text-base">
+                      {(text(`site.about.cards.${i}.title`) || "untitled").toLowerCase().replace(/\s+/g, "_")}.txt
+                    </span>
+                  </div>
+                  <div className="p-8 lg:p-10">
+                    <T path={`site.about.cards.${i}.title`} as="h3" className="block font-serif text-5xl italic lg:text-[64px] lg:leading-[1.05]" placeholder="Title" />
+                    <div className="mt-6">
+                      <RichT
                         path={`site.about.cards.${i}.body`}
-                        as="p"
-                        multiline
-                        className="mt-3 block whitespace-pre-line text-sm leading-relaxed text-ink/75"
+                        className="text-lg leading-relaxed text-ink/75 lg:text-[21px] lg:leading-relaxed"
                         placeholder="Write something"
                       />
                     </div>
                   </div>
-                </article>
-              );
-            })}
+                </div>
+              </article>
+            ))}
           </div>
 
-          {/* The big folder the cards come out of (desktop) */}
-          <div className="relative z-10 mx-auto -mt-12 hidden h-36 w-[440px] lg:block">
-            <div className="absolute inset-x-0 bottom-0 h-full rounded-2xl bg-gradient-to-b from-[#9ed4ff] to-[#5aaef0] shadow-[0_20px_50px_#5aaef055,inset_0_1px_0_#ffffff90]" />
-            <span className="absolute bottom-5 left-1/2 -translate-x-1/2 font-mono text-sm text-ink/70">about_{(content.site.name || "me").toLowerCase()}.zip</span>
+          {editing && <WidthHandle />}
+
+          {/* Frosted front flap: tucked cards show through blurred; it tips forward when the folder opens */}
+          <div className="pointer-events-none absolute left-1/2 top-[58px] z-[2] h-[132px] w-[250px] -translate-x-1/2 [perspective:1400px]">
+            <div className="absolute inset-0 origin-bottom rounded-[14px] border border-white/50 bg-gradient-to-b from-[#b4deff]/75 to-[#5aaef0]/85 shadow-[0_16px_36px_#5aaef055,inset_0_1px_0_#ffffffb0] backdrop-blur-md transition-transform duration-500 ease-[cubic-bezier(.3,1.4,.5,1)] group-data-[open=1]/fold:[transform:rotateX(-42deg)]" />
+            <span className="absolute bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-sm text-ink/70">
+              about_{(content.site.name || "me").toLowerCase()}.zip
+            </span>
           </div>
         </div>
 
-        <p className="mt-20 text-center text-6xl sm:text-8xl">
-          <T path="site.about.punchline.0" className="font-semibold tracking-tight" placeholder="Hiring" />{" "}
-          <T path="site.about.punchline.1" className="font-serif italic" placeholder="her." />
-        </p>
-        <Link
-          href="/contact"
-          className="mt-8 inline-flex items-center gap-2 rounded-full border-2 border-ink bg-ink px-7 py-3 font-medium text-paper transition hover:-translate-y-0.5 hover:border-accent hover:bg-accent"
-        >
-          {ui("workTogether")} <span aria-hidden>→</span>
-        </Link>
+        </div>
       </section>
     </div>
   );

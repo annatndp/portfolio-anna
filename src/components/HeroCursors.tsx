@@ -9,7 +9,7 @@ const SLOTS = [
   { x: 10, y: 20, bg: "#002fff", fg: "#fff", depth: 28 },
   { x: 76, y: 16, bg: "#ff6b9a", fg: "#fff", depth: -22 },
   { x: 4, y: 64, bg: "#c8f169", fg: "#050505", depth: -32 },
-  { x: 82, y: 60, bg: "#ff8a3d", fg: "#050505", depth: 24 },
+  { x: 84, y: 67, bg: "#ff8a3d", fg: "#050505", depth: 24 },
   { x: 20, y: 84, bg: "#8b5cf6", fg: "#fff", depth: 18 },
   { x: 66, y: 86, bg: "#a8dadc", fg: "#050505", depth: -18 },
 ];
