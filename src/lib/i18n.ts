@@ -8,6 +8,7 @@ export const htmlLang = (l: Lang) => (l === "no" ? "nb" : "en");
 export const parseLang = (v?: string | null): Lang => (v === "no" ? "no" : "en");
 
 const en = {
+  home: "Home",
   projects: "Projects",
   about: "About",
   contact: "Contact",
@@ -35,6 +36,7 @@ const en = {
 };
 
 const no: typeof en = {
+  home: "Hjem",
   projects: "Prosjekter",
   about: "Om meg",
   contact: "Kontakt",

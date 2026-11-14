@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { getAt } from "@/lib/path";
 import { useContent } from "./ContentProvider";
 
 // Formatted text: bold, italic, 3 fonts, 5 sizes, 2 colors, and "push to the right"
 // (e.g. a year at the end of a line). Stored as a small subset of HTML.
 // Only these tags/attributes survive, so pasted or typed markup can't run scripts.
-const TAGS = new Set(["b", "strong", "i", "em", "u", "br", "div", "p", "font", "span"]);
+const TAGS = new Set(["b", "strong", "i", "em", "u", "br", "div", "p", "font", "span", "ul", "ol", "li"]);
 const FACES = new Set(["sans", "serif", "mono"]);
 const SIZES = new Set(["1", "2", "3", "4", "5"]);
 // Colors are stored as placeholder values; globals.css maps them to the site colors.
@@ -39,17 +40,48 @@ export function toRichHtml(value: string) {
   return /<[a-z][\s\S]*>/i.test(value) ? sanitizeRich(value) : escapeHtml(value).replace(/\n/g, "<br>");
 }
 
+/** Spacing for one text block, saved next to it as `<path>Style` (same in both languages). */
+export type TextStyle = { lh?: number; ls?: number; gap?: number };
+const DEFAULT_STYLE = { lh: 1.65, ls: 0, gap: 0 };
+
+function styleFor(st: TextStyle | undefined): React.CSSProperties | undefined {
+  if (!st) return undefined;
+  return {
+    ...(st.lh != null && { lineHeight: st.lh }),
+    ...(st.ls != null && { letterSpacing: `${st.ls}em` }),
+    ...(st.gap != null && { ["--gap" as string]: `${st.gap}em` }),
+  };
+}
+
+function Slider({ label, value, min, max, step, unit = "", onChange }: {
+  label: string; value: number; min: number; max: number; step: number; unit?: string; onChange: (v: number) => void;
+}) {
+  return (
+    <label className="flex items-center gap-3 text-xs text-ink">
+      <span className="w-24 shrink-0">{label}</span>
+      <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full accent-[var(--accent)]" />
+      <span className="w-12 shrink-0 text-right tabular-nums text-gray">{value}{unit}</span>
+    </label>
+  );
+}
+
 const btn =
   "flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm text-ink hover:bg-ink hover:text-paper";
 
 /** Rich text that becomes an editor with a small toolbar in edit mode. */
 export function RichT({ path, className = "", placeholder = "Type here…" }: { path: string; className?: string; placeholder?: string }) {
-  const { editing, text, setText } = useContent();
+  const { editing, text, setText, content, set } = useContent();
   const ref = useRef<HTMLDivElement>(null);
+  const [panel, setPanel] = useState(false);
   const value = text(path);
   const html = toRichHtml(value);
+  const st = getAt(content, `${path}Style`) as TextStyle | undefined;
+  const style = styleFor(st);
 
-  if (!editing) return value ? <div className={`rich ${className}`} dangerouslySetInnerHTML={{ __html: html }} /> : null;
+  if (!editing) return value ? <div className={`rich ${className}`} style={style} dangerouslySetInnerHTML={{ __html: html }} /> : null;
+
+  const cur = { ...DEFAULT_STYLE, ...st };
+  const setStyle = (k: keyof TextStyle, v: number) => set(`${path}Style`, { ...st, [k]: v });
 
   const save = () => {
     const next = sanitizeRich(ref.current?.innerHTML ?? "").replace(/(<br>|\s)+$/g, "");
@@ -129,10 +161,36 @@ export function RichT({ path, className = "", placeholder = "Type here…" }: { 
           → Right
         </button>
         <span className="mx-1 h-5 w-px bg-ink/15" />
+        <button type="button" title="Bullet list" className={btn} onMouseDown={cmd("insertUnorderedList")}>• List</button>
+        <button type="button" title="Numbered list" className={btn} onMouseDown={cmd("insertOrderedList")}>1. List</button>
+        <span className="mx-1 h-5 w-px bg-ink/15" />
+        <button
+          type="button"
+          title="Line height, letter spacing and space between lines"
+          className={`${btn} ${panel ? "bg-ink text-paper" : ""}`}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setPanel((p) => !p);
+          }}
+        >
+          ↕ Spacing
+        </button>
+        <span className="mx-1 h-5 w-px bg-ink/15" />
         <button type="button" title="Clear formatting" className={btn} onMouseDown={cmd("removeFormat")}>Clear</button>
+        {panel && (
+          <div className="mt-1 flex w-full flex-col gap-2 rounded-lg bg-ink/[0.04] p-3">
+            <Slider label="Line height" value={cur.lh} min={1} max={2.4} step={0.05} onChange={(v) => setStyle("lh", v)} />
+            <Slider label="Letter spacing" value={cur.ls} min={-0.05} max={0.2} step={0.005} unit="em" onChange={(v) => setStyle("ls", v)} />
+            <Slider label="Space between lines" value={cur.gap} min={0} max={1.5} step={0.05} unit="em" onChange={(v) => setStyle("gap", v)} />
+            <button type="button" className="self-start text-xs text-gray underline hover:text-ink" onClick={() => set(`${path}Style`, undefined)}>
+              Reset spacing
+            </button>
+          </div>
+        )}
       </div>
       <div
         key={html}
+        style={style}
         ref={ref}
         className={`rich editable ${className}`}
         contentEditable

@@ -189,6 +189,30 @@ function MiniFolder({ i, image, editing }: { i: number; image: string; editing: 
   );
 }
 
+/** Edit mode: card buttons in the title bar — move, delete, width and text size. */
+function CardTools({ i, wide, scale }: { i: number; wide: boolean; scale: number }) {
+  const { set } = useContent();
+  const btn =
+    "flex h-8 min-w-8 items-center justify-center rounded-full bg-paper px-2 text-xs font-medium text-ink shadow ring-1 ring-ink/10 hover:bg-ink hover:text-paper";
+  const zoom = (d: number) => set(`site.about.cards.${i}.scale`, Math.round(Math.min(1.5, Math.max(0.6, scale + d)) * 100) / 100);
+  return (
+    <div className="relative ml-auto flex shrink-0 items-center gap-1.5">
+      <button type="button" title="Smaller text" className={btn} onClick={() => zoom(-0.05)}>A−</button>
+      <span className="w-10 text-center text-xs tabular-nums text-ink/60">{Math.round(scale * 100)}%</span>
+      <button type="button" title="Bigger text" className={btn} onClick={() => zoom(0.05)}>A+</button>
+      <button
+        type="button"
+        title={wide ? "Make the card half width" : "Make the card full width"}
+        className={`${btn} hidden sm:flex`}
+        onClick={() => set(`site.about.cards.${i}.wide`, !wide)}
+      >
+        {wide ? "◧ Half" : "▭ Full"}
+      </button>
+      <ItemControls listPath="site.about.cards" index={i} label="card" className="!static" />
+    </div>
+  );
+}
+
 /** Last card: email + social links (the same links as in the footer). */
 function InfoCard({ index }: { index: number }) {
   const { content, editing, set, update, ui } = useContent();
@@ -286,7 +310,7 @@ function WidthHandle() {
       title="Drag to change the card width"
       className="absolute -right-5 bottom-0 top-[260px] z-20 flex w-3 cursor-ew-resize justify-center rounded-full bg-accent/80 hover:bg-accent"
     >
-      <span className="absolute right-5 top-0 whitespace-nowrap rounded-full bg-accent px-2 py-1 text-xs font-medium text-paper shadow">
+      <span className="absolute -bottom-9 right-0 whitespace-nowrap rounded-full bg-accent px-2 py-1 text-xs font-medium text-paper shadow">
         ↔ {width}px
       </span>
     </button>
@@ -435,11 +459,13 @@ export function AboutView() {
           </div>
 
           <div className="relative z-[1] mt-12 grid gap-6 sm:grid-cols-2 lg:gap-9">
-            {about.cards.slice(0, 5).map((c, i, all) => (
+            {about.cards.map((c, i, all) => (
               <article
                 key={i}
                 data-card
-                className={`group/card relative origin-center rounded-3xl ${i === 4 && all.length === 5 ? "sm:col-span-2" : ""} border border-ink/10 bg-paper shadow-xl hover:z-10`}
+                className={`group/card relative origin-center rounded-3xl ${
+                  (c.wide ?? (i === all.length - 1 && all.length % 2 === 1)) ? "sm:col-span-2" : ""
+                } border border-ink/10 bg-paper shadow-xl hover:z-10`}
                 style={{ boxShadow: `0 12px 36px ${PASTEL[i % PASTEL.length]}` }}
               >
                 <div className="transition-transform duration-300 group-hover/card:-translate-y-2">
@@ -453,8 +479,9 @@ export function AboutView() {
                     <span className="ml-2 truncate font-mono text-sm text-ink/60 lg:text-base">
                       {(text(`site.about.cards.${i}.title`) || "untitled").toLowerCase().replace(/\s+/g, "_")}.txt
                     </span>
+                    {editing && <CardTools i={i} wide={c.wide ?? (i === all.length - 1 && all.length % 2 === 1)} scale={c.scale ?? 1} />}
                   </div>
-                  <div className="p-8 lg:p-10">
+                  <div className="p-8 lg:p-10" style={c.scale && c.scale !== 1 ? { zoom: c.scale } : undefined}>
                     <T path={`site.about.cards.${i}.title`} as="h3" className="block font-serif text-5xl italic lg:text-[64px] lg:leading-[1.05]" placeholder="Title" />
                     <div className="mt-6">
                       <RichT
@@ -467,7 +494,15 @@ export function AboutView() {
                 </div>
               </article>
             ))}
-            <InfoCard index={Math.min(about.cards.length, 5)} />
+            {editing && (
+              <AddButton
+                className="sm:col-span-2"
+                onClick={() => update((d) => void d.site.about.cards.push({ title: "New card", body: "" }))}
+              >
+                Add card
+              </AddButton>
+            )}
+            <InfoCard index={about.cards.length} />
           </div>
 
           {editing && <WidthHandle />}

@@ -42,7 +42,13 @@ export type Content = {
       /** App icons in the dock under the photo: short = text on the icon, name = tooltip. */
       tools: { short: string; name: string }[];
       /** Cards that fan out of the big folder on the second screen. */
-      cards: { title: string; body: string }[];
+      cards: {
+        title: string;
+        body: string;
+        bodyStyle?: { lh?: number; ls?: number; gap?: number };
+        wide?: boolean; // spans both columns
+        scale?: number; // text size, 1 = normal
+      }[];
       /** Max width of the 2 × 2 card grid in px (drag handle in edit mode). */
       cardsWidth: number;
       punchline: [string, string];

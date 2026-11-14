@@ -9,11 +9,12 @@ export function Header() {
   const { content, ui, lang, setLang } = useContent();
   const { site } = content;
   const nav = [
+    { href: "/", label: ui("home") },
     { href: "/projects", label: ui("projects") },
     { href: "/about", label: ui("about") },
   ];
   const pill =
-    "relative inline-flex items-center justify-center px-3.5 py-2.5 text-base transition-transform hover:-translate-y-0.5 sm:px-8 sm:py-3 sm:text-2xl";
+    "relative inline-flex items-center justify-center px-2.5 py-2.5 text-[15px] transition-transform hover:-translate-y-0.5 sm:px-8 sm:py-3 sm:text-2xl";
   const Ellipse = ({ color, active }: { color: string; active: boolean }) => (
     <svg
       viewBox="0 0 200 80"
@@ -58,9 +59,9 @@ export function Header() {
             .join("")}
         </Link>
 
-        <nav className="flex items-center gap-1.5 sm:gap-5">
+        <nav className="flex items-center gap-0.5 sm:gap-5">
           {nav.map((item) => {
-            const active = pathname === item.href || pathname.startsWith(item.href + "/");
+            const active = item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(item.href + "/");
             const color = active ? "var(--accent)" : "var(--ink)";
             return (
               <Link
