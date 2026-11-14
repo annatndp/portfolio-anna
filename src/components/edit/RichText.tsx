@@ -3,11 +3,15 @@
 import { useRef } from "react";
 import { useContent } from "./ContentProvider";
 
-// Formatted text: bold, italic, 3 fonts, 3 sizes. Stored as a small subset of HTML.
+// Formatted text: bold, italic, 3 fonts, 5 sizes, 2 colors, and "push to the right"
+// (e.g. a year at the end of a line). Stored as a small subset of HTML.
 // Only these tags/attributes survive, so pasted or typed markup can't run scripts.
-const TAGS = new Set(["b", "strong", "i", "em", "u", "br", "div", "p", "font"]);
+const TAGS = new Set(["b", "strong", "i", "em", "u", "br", "div", "p", "font", "span"]);
 const FACES = new Set(["sans", "serif", "mono"]);
-const SIZES = new Set(["2", "3", "5"]);
+const SIZES = new Set(["1", "2", "3", "4", "5"]);
+// Colors are stored as placeholder values; globals.css maps them to the site colors.
+const COLORS = { dark: "#000001", grey: "#000002" };
+const COLOR_SET = new Set(Object.values(COLORS));
 
 const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -19,10 +23,14 @@ export function sanitizeRich(html: string) {
       const t = name.toLowerCase();
       if (!TAGS.has(t)) return "";
       if (tag.startsWith("</")) return `</${t}>`;
+      if (t === "span") return /class="r"/.test(attrs) ? `<span class="r">` : "<span>";
       if (t !== "font") return `<${t}>`;
       const face = attrs.match(/face="([^"]*)"/)?.[1];
       const size = attrs.match(/size="([^"]*)"/)?.[1];
-      return `<font${face && FACES.has(face) ? ` face="${face}"` : ""}${size && SIZES.has(size) ? ` size="${size}"` : ""}>`;
+      const color = attrs.match(/color="([^"]*)"/)?.[1]?.toLowerCase();
+      return `<font${face && FACES.has(face) ? ` face="${face}"` : ""}${size && SIZES.has(size) ? ` size="${size}"` : ""}${
+        color && COLOR_SET.has(color) ? ` color="${color}"` : ""
+      }>`;
     });
 }
 
@@ -56,6 +64,44 @@ export function RichT({ path, className = "", placeholder = "Type here…" }: { 
     save();
   };
 
+  // Wrap the selection in a right-aligned span, or unwrap it if it's already inside one.
+  const toggleRight = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !ref.current) return;
+    const range = sel.getRangeAt(0);
+    let node: Node | null = range.commonAncestorContainer;
+    while (node && node !== ref.current) {
+      if (node instanceof HTMLElement && node.matches("span.r")) {
+        node.replaceWith(...node.childNodes);
+        save();
+        return;
+      }
+      node = node.parentNode;
+    }
+    if (range.collapsed || !ref.current.contains(range.commonAncestorContainer)) return;
+    const span = document.createElement("span");
+    span.className = "r";
+    span.appendChild(range.extractContents());
+    range.insertNode(span);
+    // A float only stays on its own line when it comes first, so move it to the start of the line:
+    // out of any bold/font wrappers, then back past the text before it (up to a line break).
+    const root = ref.current;
+    while (span.parentNode && span.parentNode !== root && !/^(DIV|P)$/.test((span.parentNode as Element).nodeName)) {
+      const parent = span.parentNode as Element;
+      if (span.previousSibling) parent.after(span);
+      else parent.before(span);
+      if (span.parentNode === parent) break;
+    }
+    let prev = span.previousSibling;
+    while (prev && prev.nodeName !== "BR" && !(prev instanceof HTMLElement && /^(DIV|P)$/.test(prev.nodeName))) {
+      span.after(prev);
+      prev = span.previousSibling;
+    }
+    save();
+  };
+
   return (
     <div className="relative">
       <div className="mb-2 flex flex-wrap items-center gap-1 rounded-xl border border-ink/10 bg-paper p-1 shadow-sm">
@@ -66,9 +112,22 @@ export function RichT({ path, className = "", placeholder = "Type here…" }: { 
         <button type="button" title="Serif font" className={`${btn} font-serif italic`} onMouseDown={cmd("fontName", "serif")}>Serif</button>
         <button type="button" title="Mono font" className={`${btn} font-mono`} onMouseDown={cmd("fontName", "mono")}>Mono</button>
         <span className="mx-1 h-5 w-px bg-ink/15" />
+        <button type="button" title="Extra small" className={`${btn} text-[10px]`} onMouseDown={cmd("fontSize", "1")}>XS</button>
         <button type="button" title="Small" className={`${btn} text-xs`} onMouseDown={cmd("fontSize", "2")}>S</button>
         <button type="button" title="Normal" className={btn} onMouseDown={cmd("fontSize", "3")}>M</button>
-        <button type="button" title="Large" className={`${btn} text-base`} onMouseDown={cmd("fontSize", "5")}>L</button>
+        <button type="button" title="Large" className={`${btn} text-base`} onMouseDown={cmd("fontSize", "4")}>L</button>
+        <button type="button" title="Extra large" className={`${btn} text-lg`} onMouseDown={cmd("fontSize", "5")}>XL</button>
+        <span className="mx-1 h-5 w-px bg-ink/15" />
+        <button type="button" title="Dark text" className={`${btn} gap-1.5`} onMouseDown={cmd("foreColor", COLORS.dark)}>
+          <span className="h-3 w-3 rounded-full bg-ink" /> Dark
+        </button>
+        <button type="button" title="Grey text" className={`${btn} gap-1.5`} onMouseDown={cmd("foreColor", COLORS.grey)}>
+          <span className="h-3 w-3 rounded-full bg-gray" /> Grey
+        </button>
+        <span className="mx-1 h-5 w-px bg-ink/15" />
+        <button type="button" title="Push the selected text to the right of its line (click again to undo)" className={btn} onMouseDown={toggleRight}>
+          → Right
+        </button>
         <span className="mx-1 h-5 w-px bg-ink/15" />
         <button type="button" title="Clear formatting" className={btn} onMouseDown={cmd("removeFormat")}>Clear</button>
       </div>
