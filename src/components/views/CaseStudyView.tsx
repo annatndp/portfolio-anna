@@ -6,8 +6,8 @@ import { emptyImage } from "@/content/defaults";
 import { AddButton, EditableImage, T } from "@/components/edit/Editable";
 import { useContent } from "@/components/edit/ContentProvider";
 import { useRef } from "react";
-import { DEFAULT_GAP, DEFAULT_RATIO, ResizableFrame, framePx } from "@/components/edit/Frame";
-import { LookTools, lookStyle } from "@/components/edit/TextLook";
+import { DEFAULT_GAP, DEFAULT_RATIO, ResizableFrame, framePx, frameWidth } from "@/components/edit/Frame";
+import { LookTools, btn as lookBtn, keep, lookStyle } from "@/components/edit/TextLook";
 import type { FrameSize, TextLook } from "@/content/types";
 import { slugify } from "@/lib/path";
 
@@ -79,6 +79,27 @@ export function CaseStudyView({ slug }: { slug: string }) {
       p.galleryFrames = frames;
     });
 
+  const removeItem = (g: number) =>
+    update((d) => {
+      d.projects[i].gallery.splice(g, 1);
+      const frames = d.projects[i].galleryFrames;
+      frames?.splice(g, 1);
+      // The item that slides into this spot no longer has a partner to match.
+      if (frames?.[g]?.m) frames[g] = { ...frames[g], m: undefined };
+    });
+
+  /** Add text blocks at the end of the gallery: one across the row, or two side by side. */
+  const addText = (columns: 1 | 2) =>
+    update((d) => {
+      const p = d.projects[i];
+      const frames = Array.from({ length: p.gallery.length }, (_, n) => p.galleryFrames?.[n] ?? null);
+      for (let n = 0; n < columns; n++) {
+        p.gallery.push("");
+        frames.push(columns === 1 ? { t: true, w: 100 } : { t: true });
+      }
+      p.galleryFrames = frames;
+    });
+
   function changeSlug() {
     const input = prompt("Page link (letters, numbers and dashes):", project.slug);
     if (!input) return;
@@ -90,7 +111,7 @@ export function CaseStudyView({ slug }: { slug: string }) {
   }
 
   return (
-    <article className="mx-auto max-w-7xl px-5 pb-24 pt-28 sm:px-10 sm:pt-32">
+    <article className="mx-auto max-w-7xl px-5 pb-24 pt-28 sm:px-10 sm:pt-32" style={{ ["--gx" as string]: `${gapX}px` }}>
       <Link href="/projects" className="mb-8 inline-flex items-center gap-2 text-sm text-gray transition-colors hover:text-ink">
         <span aria-hidden>←</span>
         <span className="font-serif italic">{ui("allProjects")}</span>
@@ -159,7 +180,7 @@ export function CaseStudyView({ slug }: { slug: string }) {
           path={`${base}.title`}
           as="h1"
           style={lookStyle(looks.title)}
-          className="block max-w-4xl text-[length:calc(var(--s,1)*3rem)] font-semibold leading-[1.05] tracking-tight sm:text-[length:calc(var(--s,1)*4.5rem)]"
+          className="block max-w-4xl sm:w-[var(--tw,auto)] text-[length:calc(var(--s,1)*3rem)] font-semibold leading-[1.05] tracking-tight sm:text-[length:calc(var(--s,1)*4.5rem)]"
           placeholder="Project title"
         />
       </LookTools>
@@ -170,7 +191,7 @@ export function CaseStudyView({ slug }: { slug: string }) {
             as="p"
             multiline
             style={lookStyle(looks.description)}
-            className="block max-w-2xl text-[length:calc(var(--s,1)*1.125rem)] leading-relaxed text-gray sm:text-[length:calc(var(--s,1)*1.25rem)]"
+            className="block max-w-2xl sm:w-[var(--tw,auto)] text-[length:calc(var(--s,1)*1.125rem)] leading-relaxed text-gray sm:text-[length:calc(var(--s,1)*1.25rem)]"
             placeholder="Describe the project"
           />
         </LookTools>
@@ -183,7 +204,47 @@ export function CaseStudyView({ slug }: { slug: string }) {
       </div>
 
       <div ref={galleryRef} className="flex flex-wrap items-start" style={{ columnGap: gapX, rowGap: gapY }}>
-        {project.gallery.map((_, g) => (
+        {project.gallery.map((_, g) => {
+          const fr = project.galleryFrames?.[g];
+          if (fr?.t) {
+            const full = (fr.w ?? 50) >= 100;
+            return (
+              <div key={g} className="w-full shrink-0 sm:w-[var(--fw)]" style={{ ["--fw" as string]: frameWidth(fr.w ?? 50, gapX) }}>
+                <LookTools
+                  look={fr.l}
+                  onChange={(l) => setGalleryFrame(g)({ ...fr, l })}
+                  defaultWeight={400}
+                  width={false}
+                  extra={
+                    <>
+                      <button
+                        type="button"
+                        title={full ? "Make this text half a row, so another text or image fits beside it" : "Make this text take the whole row"}
+                        className={lookBtn}
+                        onMouseDown={keep}
+                        onClick={() => toggleFull(g)}
+                      >
+                        {full ? "◧ Half" : "▭ Full"}
+                      </button>
+                      <button type="button" title="Remove this text" className={lookBtn} onMouseDown={keep} onClick={() => removeItem(g)}>
+                        ✕
+                      </button>
+                    </>
+                  }
+                >
+                  <T
+                    path={`${base}.gallery.${g}`}
+                    as="p"
+                    multiline
+                    style={lookStyle(fr.l)}
+                    className="block min-h-[1.5em] whitespace-pre-line text-[length:calc(var(--s,1)*1.125rem)] leading-relaxed text-gray sm:text-[length:calc(var(--s,1)*1.25rem)]"
+                    placeholder="Write something…"
+                  />
+                </LookTools>
+              </div>
+            );
+          }
+          return (
           <ResizableFrame
             key={g}
             size={project.galleryFrames?.[g]}
@@ -219,18 +280,11 @@ export function CaseStudyView({ slug }: { slug: string }) {
               alt={`${project.title} — image ${g + 1}`}
               sizes={imgSizes}
               className={project.galleryFrames?.[g]?.f === false ? "object-contain" : "object-cover"}
-              onRemove={() =>
-                update((d) => {
-                  d.projects[i].gallery.splice(g, 1);
-                  const frames = d.projects[i].galleryFrames;
-                  frames?.splice(g, 1);
-                  // The image that slides into this spot no longer has a partner to match.
-                  if (frames?.[g]?.m) frames[g] = { ...frames[g], m: undefined };
-                })
-              }
+              onRemove={() => removeItem(g)}
             />
           </ResizableFrame>
-        ))}
+          );
+        })}
         <AddButton
           style={{ ["--g" as string]: `${gapX}px` }}
           className="aspect-[4/3] w-full sm:w-[calc(50%-var(--g)/2)]"
@@ -238,6 +292,16 @@ export function CaseStudyView({ slug }: { slug: string }) {
         >
           Add image
         </AddButton>
+        {editing && (
+          <div className="flex w-full flex-wrap gap-3">
+            <AddButton className="flex-1 py-4" onClick={() => addText(1)}>
+              Add text
+            </AddButton>
+            <AddButton className="flex-1 py-4" onClick={() => addText(2)}>
+              Add 2 text columns
+            </AddButton>
+          </div>
+        )}
       </div>
     </article>
   );

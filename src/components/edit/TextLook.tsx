@@ -19,11 +19,17 @@ export function lookStyle(look?: TextLook): React.CSSProperties | undefined {
     ...(look.s != null && { ["--s" as string]: look.s }),
     ...(look.w != null && { fontWeight: look.w }),
     ...(look.c && { color: NAMED[look.c] ?? look.c }),
+    // Same widths as the image frames: half = one gallery image (minus half the gap), full = the big image.
+    // Phones always use the full width. The element's class applies --tw from the sm breakpoint up.
+    ...(look.fw && {
+      maxWidth: "none",
+      ["--tw" as string]: look.fw === "full" ? "100%" : "calc(50% - var(--gx, 24px) / 2)",
+    }),
   };
 }
 
-const keep = (e: React.MouseEvent) => e.preventDefault(); // don't steal focus from the text being edited
-const btn = "flex h-7 min-w-7 items-center justify-center rounded-md px-1.5 text-xs text-ink hover:bg-ink hover:text-paper";
+export const keep = (e: React.MouseEvent) => e.preventDefault(); // don't steal focus from the text being edited
+export const btn = "flex h-7 min-w-7 items-center justify-center rounded-md px-1.5 text-xs text-ink hover:bg-ink hover:text-paper";
 
 /**
  * Wraps a text block; in edit mode a small toolbar (size, weight, color) shows on hover.
@@ -33,8 +39,14 @@ export function LookTools({
   look,
   onChange,
   defaultWeight,
+  width = true,
+  extra,
   children,
 }: {
+  /** Show the Auto / ½ / Full text box width buttons. */
+  width?: boolean;
+  /** More buttons at the end of the toolbar. */
+  extra?: React.ReactNode;
   look?: TextLook;
   onChange: (next: TextLook | undefined) => void;
   defaultWeight: number;
@@ -103,10 +115,33 @@ export function LookTools({
           >
             <input type="color" value={custom} onChange={(e) => put({ c: e.target.value })} className="absolute inset-0 opacity-0" />
           </label>
+          {width && <span className="mx-1 h-5 w-px bg-ink/15" />}
+          {width && <div className="flex rounded-md bg-ink/5 p-0.5" title="Text box width">
+            {(
+              [
+                [undefined, "Auto", "Normal reading width"],
+                ["half", "½", "As wide as a half-width image"],
+                ["full", "Full", "As wide as the big image"],
+              ] as const
+            ).map(([fw, label, hint]) => (
+              <button
+                key={label}
+                type="button"
+                title={hint}
+                onMouseDown={keep}
+                onClick={() => put({ fw })}
+                className={`h-6 rounded px-2 ${look?.fw === fw ? "bg-ink text-paper" : "text-ink/70 hover:text-ink"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>}
           <span className="mx-1 h-5 w-px bg-ink/15" />
           <button type="button" title="Reset" className={btn} onMouseDown={keep} onClick={() => onChange(undefined)}>
             ↺
           </button>
+          {extra && <span className="mx-1 h-5 w-px bg-ink/15" />}
+          {extra}
         </div>
       </div>
       {children}

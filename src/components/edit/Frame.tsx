@@ -21,6 +21,9 @@ export const DEFAULT_CORNER = 24;
 /** Width in px of a frame that takes w% of a row of `row` px with `gap` px between frames. */
 export const framePx = (w: number, row: number, gap: number) => (w / 100) * (row + gap) - gap;
 
+/** CSS width of a frame that takes w% of a row with `gap` px between frames (half a pixel spare so pairs never wrap). */
+export const frameWidth = (w: number, gap: number) => `calc(${w}% - ${gap}px * ${(100 - w) / 100} - ${w < 100 ? 0.5 : 0}px)`;
+
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const snap = (v: number, targets: number[], within: number) => targets.find((t) => Math.abs(t - v) <= within * t) ?? v;
 const ratioName = (r: number) => RATIOS.find(([v]) => Math.abs(v - r) < 0.005)?.[1] ?? `1:${r.toFixed(2)}`;
@@ -86,7 +89,7 @@ export function ResizableFrame({
     background,
     borderRadius: corner,
     aspectRatio: `${1 / r}`,
-    ["--fw" as string]: `calc(${w}% - ${gap}px * ${(100 - w) / 100} - ${w < 100 ? 0.5 : 0}px)`,
+    ["--fw" as string]: frameWidth(w, gap),
   } as React.CSSProperties;
 
   return (
