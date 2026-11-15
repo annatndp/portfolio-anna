@@ -34,8 +34,41 @@ export const isVideo = (src: string) => /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(src
  * browser to Vercel Blob (/api/upload hands out a short-lived upload URL).
  * Locally, without a Blob store, they're sent like images and saved in public/uploads.
  */
+const EXPORT_HINT = "Please export it as MP4 (H.264), e.g. in CapCut, Premiere or QuickTime › Export.";
+
+/** ProRes is an editing format: browsers (except sometimes Safari on a Mac) can't play it. */
+async function isProRes(file: File): Promise<boolean> {
+  // The codec tag sits in the file's index, which is at the start or the end of the file.
+  const chunk = 4 * 1024 * 1024;
+  const parts = [file.slice(0, chunk), file.slice(Math.max(0, file.size - chunk))];
+  const text = (await Promise.all(parts.map((b) => b.arrayBuffer())))
+    .map((buf) => new TextDecoder("latin1").decode(buf))
+    .join("");
+  return /stsd[\s\S]{0,40}(ap4h|ap4x|apch|apcn|apcs|apco)/.test(text);
+}
+
+/** Loads the clip in a hidden player to make sure this browser can actually show it. */
+function canPlay(file: File): Promise<boolean> {
+  return new Promise((resolve) => {
+    const v = document.createElement("video");
+    const url = URL.createObjectURL(file);
+    const done = (ok: boolean) => {
+      URL.revokeObjectURL(url);
+      resolve(ok);
+    };
+    v.muted = true;
+    v.preload = "auto";
+    v.onloadeddata = () => done(v.videoWidth > 0);
+    v.onerror = () => done(false);
+    setTimeout(() => done(true), 8000); // don't block uploads on a slow decoder
+    v.src = url;
+  });
+}
+
 async function uploadVideo(file: File): Promise<string> {
   if (file.size > MAX_VIDEO_BYTES) throw new Error("Video is too large (max 50 MB). Try a shorter or smaller clip.");
+  if (await isProRes(file)) throw new Error(`This video is in ProRes, which web browsers can't play. ${EXPORT_HINT}`);
+  if (!(await canPlay(file))) throw new Error(`This browser can't play this video format. ${EXPORT_HINT}`);
   const ext = (file.name.split(".").pop() || "mp4").toLowerCase().replace(/[^a-z0-9]/g, "");
   const name = `uploads/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const probe = await fetch("/api/upload?direct=1");
