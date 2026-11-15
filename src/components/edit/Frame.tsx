@@ -4,7 +4,6 @@ import { useRef } from "react";
 import type { FrameSize } from "@/content/types";
 import { useContent } from "./ContentProvider";
 
-const WIDTHS = [25, 100 / 3, 50, 200 / 3, 75, 100];
 const RATIOS: [number, string][] = [
   [9 / 16, "16:9"],
   [2 / 3, "3:2"],
@@ -27,7 +26,7 @@ const snap = (v: number, targets: number[], within: number) => targets.find((t) 
 const ratioName = (r: number) => RATIOS.find(([v]) => Math.abs(v - r) < 0.005)?.[1] ?? `1:${r.toFixed(2)}`;
 
 /**
- * Image frame whose width (share of the row) and height can be dragged in edit mode.
+ * Image frame with a fixed width (share of the row) whose height can be dragged in edit mode.
  * `gap` is the space between frames in the same row, so widths like 50% + 50% fit exactly.
  */
 export function ResizableFrame({
@@ -61,20 +60,15 @@ export function ResizableFrame({
     e.stopPropagation();
     const el = box.current!;
     const rect = el.getBoundingClientRect();
-    const row = el.parentElement!.getBoundingClientRect().width;
     // No text selection on the page while dragging.
     const prevSelect = document.body.style.userSelect;
     document.body.style.userSelect = "none";
-    const x0 = e.clientX;
     const y0 = e.clientY;
+    // Width stays fixed (so the image never jumps to the next row); dragging only changes the height.
     const move = (ev: PointerEvent) => {
-      const px = rect.width + (ev.clientX - x0);
-      // Undo the gap share so the stored % matches what the eye sees ("half the row").
-      const pct = clamp(((px + gap) / (row + gap)) * 100, 20, 100);
-      const nextW = Math.round(snap(pct, WIDTHS, 0.04) * 100) / 100;
       const h = rect.height + (ev.clientY - y0);
-      const nextR = Math.round(snap(clamp(h / Math.max(px, 40), 0.3, 2.5), RATIOS.map(([v]) => v), 0.03) * 1000) / 1000;
-      onResize({ ...size, w: nextW, r: nextR, m: undefined });
+      const nextR = Math.round(snap(clamp(h / rect.width, 0.3, 2.5), RATIOS.map(([v]) => v), 0.03) * 1000) / 1000;
+      onResize({ ...size, r: nextR, m: undefined });
     };
     const up = () => {
       document.body.style.userSelect = prevSelect;
@@ -101,6 +95,24 @@ export function ResizableFrame({
       {editing && tools && <div className="absolute right-3 top-3 z-20 flex gap-2">{tools}</div>}
       {editing && (
         <div className="absolute bottom-2 left-2 z-20 hidden items-center gap-1 rounded-full bg-paper py-1 pl-1 pr-3 text-xs text-ink shadow group-hover/frame:flex">
+          <div className="mr-1 flex rounded-full bg-ink/5 p-0.5" title="How the image sits in the frame">
+            {(
+              [
+                [true, "Fill", "Fill the frame (edges may be cropped)"],
+                [false, "Fit", "Show the whole image"],
+              ] as const
+            ).map(([fill, label, hint]) => (
+              <button
+                key={label}
+                type="button"
+                title={hint}
+                onClick={() => onResize({ ...size, f: fill ? undefined : false })}
+                className={`rounded-full px-2.5 py-1 font-medium ${(size?.f ?? true) === fill ? "bg-ink text-paper" : "text-ink/70 hover:text-ink"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <button
             type="button"
             title="Square corners"
@@ -134,15 +146,15 @@ export function ResizableFrame({
         <button
           type="button"
           onPointerDown={start}
-          onDoubleClick={() => onResize(size?.c != null ? { c: size.c } : null)}
-          title="Drag to resize the frame · double-click to reset"
-          className="group/rs absolute bottom-2 right-2 z-20 flex h-9 w-9 cursor-nwse-resize touch-none items-center justify-center rounded-full bg-ink text-paper shadow hover:bg-accent"
+          onDoubleClick={() => onResize(size?.c != null || size?.f === false ? { c: size.c, f: size.f } : null)}
+          title="Drag up or down to change the height · double-click to reset"
+          className="group/rs absolute bottom-2 right-2 z-20 flex h-9 w-9 cursor-ns-resize touch-none items-center justify-center rounded-full bg-ink text-paper shadow hover:bg-accent"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-            <path d="M13 5v8H5M13 13 3 3M1 9V1h8" />
+            <path d="M7 1v12M3.5 4.5 7 1l3.5 3.5M3.5 9.5 7 13l3.5-3.5" />
           </svg>
           <span className="pointer-events-none absolute bottom-full right-0 mb-2 hidden whitespace-nowrap rounded-full bg-ink px-2 py-1 text-xs font-medium text-paper shadow group-hover/rs:block group-active/rs:block">
-            {Math.round(w)}% · {size?.m ? "same height" : ratioName(r)}
+            {size?.m ? "same height" : ratioName(r)}
           </span>
         </button>
       )}

@@ -26,8 +26,8 @@ export type Project = {
   looks?: Record<string, TextLook>;
 };
 
-/** w = width in % of the row (20–100), r = height ÷ width, m = same height as the image beside it (r only on phones), c = corner radius in px. */
-export type FrameSize = { w?: number; r?: number; m?: boolean; c?: number };
+/** w = width in % of the row (20–100), r = height ÷ width, m = same height as the image beside it (r only on phones), c = corner radius in px, f = false shows the whole image inside the frame (default: fill the frame, edges may crop). */
+export type FrameSize = { w?: number; r?: number; m?: boolean; c?: number; f?: boolean };
 /** s = size multiplier, w = font weight, c = "ink" | "gray" | "accent" | hex color. */
 export type TextLook = { s?: number; w?: number; c?: string };
 

@@ -166,7 +166,7 @@ export function CaseStudyView({ slug }: { slug: string }) {
 
       <div className="mt-10 flex justify-center" style={{ marginBottom: gapY }}>
         <ResizableFrame size={project.coverFrame} onResize={(f) => set(`${base}.coverFrame`, f ?? undefined)} background={project.tint}>
-          <EditableImage path={`${base}.cover`} alt={project.title} sizes={imgSizes} priority className="object-contain" />
+          <EditableImage path={`${base}.cover`} alt={project.title} sizes={imgSizes} priority className={project.coverFrame?.f === false ? "object-contain" : "object-cover"} />
         </ResizableFrame>
       </div>
 
@@ -196,7 +196,7 @@ export function CaseStudyView({ slug }: { slug: string }) {
               path={`${base}.gallery.${g}`}
               alt={`${project.title} — image ${g + 1}`}
               sizes={imgSizes}
-              className="object-contain"
+              className={project.galleryFrames?.[g]?.f === false ? "object-contain" : "object-cover"}
               onRemove={() =>
                 update((d) => {
                   d.projects[i].gallery.splice(g, 1);
