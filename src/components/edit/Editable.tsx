@@ -6,7 +6,7 @@ import { emptyImage } from "@/content/defaults";
 import { getAt } from "@/lib/path";
 import type { Content } from "@/content/types";
 import { useContent } from "./ContentProvider";
-import { uploadImage } from "./upload";
+import { isVideo, uploadImage } from "./upload";
 
 const stop = (e: React.SyntheticEvent) => {
   e.preventDefault();
@@ -95,7 +95,22 @@ export function EditableImage({
     }
   }
 
-  const img = <Image src={src} alt={alt} fill sizes={sizes} priority={priority} className={className} />;
+  // Short videos play like a GIF: muted, looping, inline (needed for autoplay on phones).
+  const img = isVideo(src) ? (
+    <video
+      key={src}
+      src={src}
+      autoPlay
+      muted
+      loop
+      playsInline
+      preload="metadata"
+      aria-label={alt}
+      className={`absolute inset-0 h-full w-full ${className}`}
+    />
+  ) : (
+    <Image src={src} alt={alt} fill sizes={sizes} priority={priority} className={className} />
+  );
   if (!editing) return img;
 
   return (
@@ -123,7 +138,7 @@ export function EditableImage({
             }}
             className="rounded-full bg-ink px-3 py-1.5 text-xs font-medium text-paper shadow hover:bg-accent"
           >
-            {busy ? "Uploading…" : "Replace image"}
+            {busy ? "Uploading…" : "Replace image / video"}
           </button>
           {onRemove && (
             <button
@@ -141,7 +156,7 @@ export function EditableImage({
         <input
           ref={input}
           type="file"
-          accept="image/*"
+          accept="image/*,video/mp4,video/webm,video/quicktime"
           hidden
           onChange={(e) => {
             handle(e.target.files?.[0]);
