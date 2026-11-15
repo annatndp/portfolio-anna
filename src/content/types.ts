@@ -15,7 +15,21 @@ export type Project = {
   gallery: string[];
   /** Background color behind the images. */
   tint: string;
+  /** Frame size of the big image (drag handle in edit mode). */
+  coverFrame?: FrameSize;
+  /** Frame size per gallery image, same order as `gallery`. */
+  galleryFrames?: (FrameSize | null)[];
+  /** Space between images in px: gapX between images in a row, gapY between rows (sliders in edit mode). */
+  gapX?: number;
+  gapY?: number;
+  /** Text size / weight / color for "meta", "title", "description". */
+  looks?: Record<string, TextLook>;
 };
+
+/** w = width in % of the row (20–100), r = height ÷ width, m = same height as the image beside it (r only on phones), c = corner radius in px. */
+export type FrameSize = { w?: number; r?: number; m?: boolean; c?: number };
+/** s = size multiplier, w = font weight, c = "ink" | "gray" | "accent" | hex color. */
+export type TextLook = { s?: number; w?: number; c?: string };
 
 export type Content = {
   site: {

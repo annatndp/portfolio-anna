@@ -20,8 +20,10 @@ export function T({
   className,
   placeholder = "Type here…",
   multiline = false,
+  style,
 }: {
   path: string;
+  style?: React.CSSProperties;
   as?: React.ElementType;
   className?: string;
   placeholder?: string;
@@ -30,12 +32,13 @@ export function T({
   const { editing, text, setText } = useContent();
   const value = text(path);
 
-  if (!editing) return value ? <Tag className={className}>{value}</Tag> : null;
+  if (!editing) return value ? <Tag className={className} style={style}>{value}</Tag> : null;
 
   return (
     <Tag
       key={value}
       className={`${className ?? ""} editable`}
+      style={style}
       contentEditable="plaintext-only"
       suppressContentEditableWarning
       spellCheck
@@ -221,13 +224,24 @@ export function ItemControls({
 }
 
 /** Dashed "+ Add …" button shown only in edit mode. */
-export function AddButton({ onClick, children, className = "" }: { onClick: () => void; children: React.ReactNode; className?: string }) {
+export function AddButton({
+  onClick,
+  children,
+  className = "",
+  style,
+}: {
+  onClick: () => void;
+  children: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
   const { editing } = useContent();
   if (!editing) return null;
   return (
     <button
       type="button"
       onClick={onClick}
+      style={style}
       className={`flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-ink/25 p-6 text-sm font-medium text-gray transition hover:border-accent hover:text-accent ${className}`}
     >
       <span className="text-xl leading-none">+</span> {children}

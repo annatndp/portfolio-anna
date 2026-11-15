@@ -5,14 +5,18 @@ import { useRouter } from "next/navigation";
 import { emptyImage } from "@/content/defaults";
 import { AddButton, EditableImage, T } from "@/components/edit/Editable";
 import { useContent } from "@/components/edit/ContentProvider";
+import { useRef } from "react";
+import { DEFAULT_GAP, DEFAULT_RATIO, ResizableFrame, framePx } from "@/components/edit/Frame";
+import { LookTools, lookStyle } from "@/components/edit/TextLook";
+import type { FrameSize, TextLook } from "@/content/types";
 import { slugify } from "@/lib/path";
 
-const frame = "relative aspect-[4/3] w-full overflow-hidden rounded-3xl";
 const imgSizes = "(min-width: 1280px) 1280px, 100vw";
 
 export function CaseStudyView({ slug }: { slug: string }) {
   const { content, editing, update, set, ui } = useContent();
   const router = useRouter();
+  const galleryRef = useRef<HTMLDivElement>(null);
   const i = content.projects.findIndex((p) => p.slug === slug);
   const project = content.projects[i];
 
@@ -27,6 +31,41 @@ export function CaseStudyView({ slug }: { slug: string }) {
 
   const base = `projects.${i}`;
   const meta = (["category", "campaign", "year"] as const).filter((k) => editing || project[k]);
+
+  const looks = project.looks ?? {};
+  const setLook = (key: string) => (next: TextLook | undefined) =>
+    update((d) => {
+      const all = { ...d.projects[i].looks };
+      if (next) all[key] = next;
+      else delete all[key];
+      d.projects[i].looks = all;
+    });
+  const setGalleryFrame = (g: number) => (next: FrameSize | null) =>
+    update((d) => {
+      const p = d.projects[i];
+      const frames = Array.from({ length: p.gallery.length }, (_, n) => p.galleryFrames?.[n] ?? null);
+      frames[g] = next;
+      p.galleryFrames = frames;
+    });
+
+  const gapX = project.gapX ?? DEFAULT_GAP;
+  const gapY = project.gapY ?? DEFAULT_GAP;
+
+  /** Put image g and the next one in one row, same height, keeping image g's width when it leaves room. */
+  const sideBySide = (g: number) =>
+    update((d) => {
+      const p = d.projects[i];
+      const frames = Array.from({ length: p.gallery.length }, (_, n) => p.galleryFrames?.[n] ?? null);
+      const a = frames[g] ?? {};
+      const w1 = a.w && a.w <= 80 ? a.w : 50;
+      const w2 = Math.round((100 - w1) * 100) / 100;
+      const r1 = a.r ?? DEFAULT_RATIO;
+      const row = galleryRef.current?.clientWidth ?? 1200;
+      const r2 = Math.round(((framePx(w1, row, gapX) * r1) / framePx(w2, row, gapX)) * 1000) / 1000;
+      frames[g] = { ...a, w: w1, r: r1, m: undefined };
+      frames[g + 1] = { ...frames[g + 1], w: w2, r: r2, m: true };
+      p.galleryFrames = frames;
+    });
 
   function changeSlug() {
     const input = prompt("Page link (letters, numbers and dashes):", project.slug);
@@ -51,7 +90,30 @@ export function CaseStudyView({ slug }: { slug: string }) {
           <button type="button" onClick={changeSlug} className="rounded-full border border-ink/30 px-3 py-1 hover:bg-ink hover:text-paper">
             Change link
           </button>
-          <label className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
+            <span>Spacing</span>
+            {(
+              [
+                ["gapX", gapX, "↔", "Space between images side by side"],
+                ["gapY", gapY, "↕", "Space between rows (and under the big image)"],
+              ] as const
+            ).map(([key, val, icon, hint]) => (
+              <label key={key} title={hint} className="flex items-center gap-2">
+                <span className="text-base text-ink">{icon}</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={120}
+                  step={4}
+                  value={val}
+                  onChange={(e) => set(`${base}.${key}`, Number(e.target.value))}
+                  className="w-24 accent-[var(--accent)]"
+                />
+                <span className="w-10 tabular-nums">{val}px</span>
+              </label>
+            ))}
+          </div>
+          <label className="flex items-center gap-2">
             Background
             <input
               type="color"
@@ -64,37 +126,91 @@ export function CaseStudyView({ slug }: { slug: string }) {
       )}
 
       {meta.length > 0 && (
-        <p className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold uppercase tracking-widest text-gray">
-          <span className="h-2.5 w-2.5 rounded-full border-2 border-accent" aria-hidden />
-          {meta.map((k, n) => (
-            <span key={k} className={n > 0 ? "text-gray/70" : ""}>
-              {n > 0 && "· "}
-              <T path={`${base}.${k}`} placeholder={k} />
-            </span>
-          ))}
-        </p>
+        <LookTools look={looks.meta} onChange={setLook("meta")} defaultWeight={600}>
+          <p
+            className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[length:calc(var(--s,1)*0.75rem)] font-semibold uppercase leading-snug tracking-widest text-gray"
+            style={lookStyle(looks.meta)}
+          >
+            <span className="h-2.5 w-2.5 rounded-full border-2 border-accent" aria-hidden />
+            {meta.map((k, n) => (
+              <span key={k} className={n > 0 && !looks.meta?.c ? "opacity-70" : ""}>
+                {n > 0 && "· "}
+                <T path={`${base}.${k}`} placeholder={k} />
+              </span>
+            ))}
+          </p>
+        </LookTools>
       )}
 
-      <T path={`${base}.title`} as="h1" className="block max-w-4xl text-5xl font-semibold leading-[1.05] tracking-tight sm:text-7xl" placeholder="Project title" />
-      <T path={`${base}.description`} as="p" multiline className="mt-5 block max-w-2xl text-lg leading-relaxed text-gray sm:text-xl" placeholder="Describe the project" />
-
-      <div className={`${frame} mt-10`} style={{ background: project.tint }}>
-        <EditableImage path={`${base}.cover`} alt={project.title} sizes={imgSizes} priority className="object-contain" />
+      <LookTools look={looks.title} onChange={setLook("title")} defaultWeight={600}>
+        <T
+          path={`${base}.title`}
+          as="h1"
+          style={lookStyle(looks.title)}
+          className="block max-w-4xl text-[length:calc(var(--s,1)*3rem)] font-semibold leading-[1.05] tracking-tight sm:text-[length:calc(var(--s,1)*4.5rem)]"
+          placeholder="Project title"
+        />
+      </LookTools>
+      <div className="mt-5">
+        <LookTools look={looks.description} onChange={setLook("description")} defaultWeight={400}>
+          <T
+            path={`${base}.description`}
+            as="p"
+            multiline
+            style={lookStyle(looks.description)}
+            className="block max-w-2xl text-[length:calc(var(--s,1)*1.125rem)] leading-relaxed text-gray sm:text-[length:calc(var(--s,1)*1.25rem)]"
+            placeholder="Describe the project"
+          />
+        </LookTools>
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
+      <div className="mt-10 flex justify-center" style={{ marginBottom: gapY }}>
+        <ResizableFrame size={project.coverFrame} onResize={(f) => set(`${base}.coverFrame`, f ?? undefined)} background={project.tint}>
+          <EditableImage path={`${base}.cover`} alt={project.title} sizes={imgSizes} priority className="object-contain" />
+        </ResizableFrame>
+      </div>
+
+      <div ref={galleryRef} className="flex flex-wrap items-start" style={{ columnGap: gapX, rowGap: gapY }}>
         {project.gallery.map((_, g) => (
-          <div key={g} className={frame} style={{ background: project.tint }}>
+          <ResizableFrame
+            key={g}
+            size={project.galleryFrames?.[g]}
+            onResize={setGalleryFrame(g)}
+            gap={gapX}
+            defaultWidth={50}
+            background={project.tint}
+            tools={
+              g < project.gallery.length - 1 && (
+                <button
+                  type="button"
+                  title="Put this image and the next one side by side, same height"
+                  onClick={() => sideBySide(g)}
+                  className="rounded-full bg-paper px-3 py-1.5 text-xs font-medium text-ink shadow hover:bg-ink hover:text-paper"
+                >
+                  ⇆ Side by side
+                </button>
+              )
+            }
+          >
             <EditableImage
               path={`${base}.gallery.${g}`}
               alt={`${project.title} — image ${g + 1}`}
               sizes={imgSizes}
               className="object-contain"
-              onRemove={() => update((d) => void d.projects[i].gallery.splice(g, 1))}
+              onRemove={() =>
+                update((d) => {
+                  d.projects[i].gallery.splice(g, 1);
+                  d.projects[i].galleryFrames?.splice(g, 1);
+                })
+              }
             />
-          </div>
+          </ResizableFrame>
         ))}
-        <AddButton className="aspect-[4/3]" onClick={() => update((d) => void d.projects[i].gallery.push(emptyImage))}>
+        <AddButton
+          style={{ ["--g" as string]: `${gapX}px` }}
+          className="aspect-[4/3] w-full sm:w-[calc(50%-var(--g)/2)]"
+          onClick={() => update((d) => void d.projects[i].gallery.push(emptyImage))}
+        >
           Add image
         </AddButton>
       </div>
