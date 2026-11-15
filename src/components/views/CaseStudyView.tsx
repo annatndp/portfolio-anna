@@ -11,6 +11,7 @@ import { LookTools, lookStyle } from "@/components/edit/TextLook";
 import type { FrameSize, TextLook } from "@/content/types";
 import { slugify } from "@/lib/path";
 
+const toolBtn = "rounded-full bg-paper px-3 py-1.5 text-xs font-medium text-ink shadow hover:bg-ink hover:text-paper";
 const imgSizes = "(min-width: 1280px) 1280px, 100vw";
 
 export function CaseStudyView({ slug }: { slug: string }) {
@@ -64,6 +65,17 @@ export function CaseStudyView({ slug }: { slug: string }) {
       const r2 = Math.round(((framePx(w1, row, gapX) * r1) / framePx(w2, row, gapX)) * 1000) / 1000;
       frames[g] = { ...a, w: w1, r: r1, m: undefined };
       frames[g + 1] = { ...frames[g + 1], w: w2, r: r2, m: true };
+      p.galleryFrames = frames;
+    });
+
+  /** Switch an image between the whole row and half a row. A pair it was part of comes apart. */
+  const toggleFull = (g: number) =>
+    update((d) => {
+      const p = d.projects[i];
+      const frames = Array.from({ length: p.gallery.length }, (_, n) => p.galleryFrames?.[n] ?? null);
+      const full = (frames[g]?.w ?? 50) >= 100;
+      frames[g] = { ...frames[g], w: full ? undefined : 100, m: undefined };
+      if (frames[g + 1]?.m) frames[g + 1] = { ...frames[g + 1], m: undefined };
       p.galleryFrames = frames;
     });
 
@@ -180,16 +192,26 @@ export function CaseStudyView({ slug }: { slug: string }) {
             defaultWidth={50}
             background={project.tint}
             tools={
-              g < project.gallery.length - 1 && (
+              <>
+                {(project.galleryFrames?.[g]?.w ?? 50) < 100 && g < project.gallery.length - 1 && (
+                  <button
+                    type="button"
+                    title="Put this image and the next one side by side, same height"
+                    onClick={() => sideBySide(g)}
+                    className={toolBtn}
+                  >
+                    ⇆ Side by side
+                  </button>
+                )}
                 <button
                   type="button"
-                  title="Put this image and the next one side by side, same height"
-                  onClick={() => sideBySide(g)}
-                  className="rounded-full bg-paper px-3 py-1.5 text-xs font-medium text-ink shadow hover:bg-ink hover:text-paper"
+                  title="Make this image take the whole row, or half of it"
+                  onClick={() => toggleFull(g)}
+                  className={toolBtn}
                 >
-                  ⇆ Side by side
+                  {(project.galleryFrames?.[g]?.w ?? 50) >= 100 ? "◧ Half width" : "▭ Full width"}
                 </button>
-              )
+              </>
             }
           >
             <EditableImage
@@ -200,7 +222,10 @@ export function CaseStudyView({ slug }: { slug: string }) {
               onRemove={() =>
                 update((d) => {
                   d.projects[i].gallery.splice(g, 1);
-                  d.projects[i].galleryFrames?.splice(g, 1);
+                  const frames = d.projects[i].galleryFrames;
+                  frames?.splice(g, 1);
+                  // The image that slides into this spot no longer has a partner to match.
+                  if (frames?.[g]?.m) frames[g] = { ...frames[g], m: undefined };
                 })
               }
             />
