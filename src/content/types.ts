@@ -11,6 +11,8 @@ export type Project = {
   year: string;
   /** Big image at the top of the project page; also the card cover. */
   cover: string;
+  /** Card image on the home page; the cover shows when the pointer is over the card. Empty = the card shows the cover. */
+  thumb?: string;
   /** Images shown two per row under the big image. An entry is text instead when its frame has t: true. */
   gallery: string[];
   /** Background color behind the images. */

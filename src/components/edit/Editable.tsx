@@ -158,6 +158,8 @@ export function EditableImage({
           type="file"
           accept="image/*,video/mp4,video/webm,video/quicktime"
           hidden
+          // The file picker's click must not reach a link around the image (e.g. a project card).
+          onClick={(e) => e.stopPropagation()}
           onChange={(e) => {
             handle(e.target.files?.[0]);
             e.target.value = "";

@@ -9,7 +9,6 @@ export function Header() {
   const { ui, lang, setLang } = useContent();
   const nav = [
     { href: "/", label: ui("home") },
-    { href: "/projects", label: ui("projects") },
     { href: "/about", label: ui("about") },
   ];
   const pill =
@@ -50,7 +49,7 @@ export function Header() {
 
         <nav className="flex items-center gap-0.5 sm:gap-5">
           {nav.map((item) => {
-            const active = item.href === "/" ? pathname === "/" : pathname === item.href || pathname.startsWith(item.href + "/");
+            const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
             const color = active ? "var(--accent)" : "var(--ink)";
             return (
               <Link

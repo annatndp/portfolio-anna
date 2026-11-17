@@ -31,7 +31,7 @@ export function CaseStudyView({ slug }: { slug: string }) {
     return (
       <section className="flex min-h-[70svh] flex-col items-center justify-center px-4 text-center">
         <p className="font-serif text-6xl italic">{ui("projectNotFound")}</p>
-        <Link href="/projects" className="mt-6 underline underline-offset-4">{ui("allProjects")}</Link>
+        <Link href="/#projects" className="mt-6 underline underline-offset-4">{ui("allProjects")}</Link>
       </section>
     );
   }
@@ -297,7 +297,7 @@ export function CaseStudyView({ slug }: { slug: string }) {
 
   return (
     <article className="mx-auto max-w-7xl px-5 pb-24 pt-28 sm:px-10 sm:pt-32" style={{ ["--gx" as string]: `${gapX}px` }}>
-      <Link href="/projects" className="mb-8 inline-flex items-center gap-2 text-sm text-gray transition-colors hover:text-ink">
+      <Link href="/#projects" className="mb-8 inline-flex items-center gap-2 text-sm text-gray transition-colors hover:text-ink">
         <span aria-hidden>←</span>
         <span className="font-serif italic">{ui("allProjects")}</span>
       </Link>
