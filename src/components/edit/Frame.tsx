@@ -40,8 +40,11 @@ export function ResizableFrame({
   background,
   className = "",
   tools,
+  data,
   children,
 }: {
+  /** data-* attributes on the frame box (used by drag and drop). */
+  data?: Record<string, string | number>;
   /** Extra edit-mode buttons, shown top right. */
   tools?: React.ReactNode;
   size?: FrameSize | null;
@@ -93,9 +96,14 @@ export function ResizableFrame({
   } as React.CSSProperties;
 
   return (
-    <div ref={box} className={`group/frame relative w-full shrink-0 overflow-hidden sm:w-[var(--fw)] ${size?.m ? "sm:self-stretch sm:aspect-auto!" : ""} ${className}`} style={style}>
+    <div
+      ref={box}
+      {...Object.fromEntries(Object.entries(data ?? {}).map(([k, v]) => [`data-${k}`, v]))}
+      className={`group/frame relative w-full shrink-0 overflow-hidden sm:w-[var(--fw)] ${size?.m ? "sm:self-stretch sm:aspect-auto!" : ""} ${className}`}
+      style={style}
+    >
       {children}
-      {editing && tools && <div className="absolute right-3 top-3 z-20 flex gap-2">{tools}</div>}
+      {editing && tools && <div className="absolute right-3 top-3 z-20 flex max-w-[calc(50%-1rem)] flex-wrap justify-end gap-2">{tools}</div>}
       {editing && (
         <div className="absolute bottom-2 left-2 z-20 hidden items-center gap-1 rounded-full bg-paper py-1 pl-1 pr-3 text-xs text-ink shadow group-hover/frame:flex">
           <div className="mr-1 flex rounded-full bg-ink/5 p-0.5" title="How the image sits in the frame">

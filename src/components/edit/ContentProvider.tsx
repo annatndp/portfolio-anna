@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Content } from "@/content/types";
 import { LANG_COOKIE, UI, htmlLang, type Lang, type UiKey } from "@/lib/i18n";
@@ -19,6 +19,9 @@ type Ctx = {
   editing: boolean;
   dirty: boolean;
   update: (fn: (draft: Content) => void) => void;
+  /** Step back / forward through edits (also Cmd+Z / Cmd+Shift+Z). */
+  undo: () => void;
+  redo: () => void;
   set: (path: string, value: unknown) => void;
   save: () => Promise<void>;
   discard: () => void;
@@ -62,13 +65,69 @@ export function ContentProvider({
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
 
-  const update = useCallback((fn: (d: Content) => void) => {
-    setDraft((d) => {
-      const copy = structuredClone(d);
-      fn(copy);
-      return copy;
-    });
+  // Undo history. Edits that come in quick succession (dragging a slider or a resize handle) count as one step.
+  const current = useRef(initial);
+  const past = useRef<Content[]>([]);
+  const future = useRef<Content[]>([]);
+  const lastEdit = useRef(0);
+
+  const show = useCallback((next: Content) => {
+    current.current = next;
+    setDraft(next);
   }, []);
+
+  const update = useCallback(
+    (fn: (d: Content) => void) => {
+      const prev = current.current;
+      const next = structuredClone(prev);
+      fn(next);
+      if (JSON.stringify(next) === JSON.stringify(prev)) return;
+      const now = Date.now();
+      if (now - lastEdit.current > 600 || !past.current.length) {
+        past.current.push(prev);
+        if (past.current.length > 200) past.current.shift();
+      }
+      lastEdit.current = now;
+      future.current = [];
+      show(next);
+    },
+    [show],
+  );
+
+  const undo = useCallback(() => {
+    const prev = past.current.pop();
+    if (!prev) return;
+    future.current.push(current.current);
+    lastEdit.current = 0;
+    show(prev);
+  }, [show]);
+
+  const redo = useCallback(() => {
+    const next = future.current.pop();
+    if (!next) return;
+    past.current.push(current.current);
+    lastEdit.current = 0;
+    show(next);
+  }, [show]);
+
+  // Cmd+Z / Ctrl+Z undo, with Shift (or Ctrl+Y) redo. While typing in a text box the browser's own undo
+  // handles the typing; the edit is saved when you click out, and then Cmd+Z undoes it as one step.
+  useEffect(() => {
+    if (!editing) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey) return;
+      const key = e.key.toLowerCase();
+      if (key !== "z" && key !== "y") return;
+      const t = e.target as HTMLElement | null;
+      if (t?.isContentEditable || (t instanceof HTMLInputElement && /^(text|email|url|search|password|)$/.test(t.type)) || t instanceof HTMLTextAreaElement)
+        return;
+      e.preventDefault();
+      if (key === "y" || e.shiftKey) redo();
+      else undo();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editing, undo, redo]);
 
   const set = useCallback((path: string, value: unknown) => update((d) => setAt(d, path, value)), [update]);
 
@@ -84,7 +143,13 @@ export function ContentProvider({
     router.refresh();
   }, [draft, router]);
 
-  const discard = useCallback(() => setDraft(saved), [saved]);
+  // Discard can be undone too.
+  const discard = useCallback(() => {
+    past.current.push(current.current);
+    future.current = [];
+    lastEdit.current = 0;
+    show(saved);
+  }, [saved, show]);
 
   const setLang = useCallback(
     (l: Lang) => {
@@ -115,8 +180,8 @@ export function ContentProvider({
   );
 
   const value = useMemo<Ctx>(
-    () => ({ content, lang, setLang, ui, text, setText, editing, dirty, update, set, save, discard }),
-    [content, lang, setLang, ui, text, setText, editing, dirty, update, set, save, discard],
+    () => ({ content, lang, setLang, ui, text, setText, editing, dirty, update, undo, redo, set, save, discard }),
+    [content, lang, setLang, ui, text, setText, editing, dirty, update, undo, redo, set, save, discard],
   );
 
   return <ContentContext.Provider value={value}>{children}</ContentContext.Provider>;

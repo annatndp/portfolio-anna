@@ -169,7 +169,7 @@ export function EditableImage({
 }
 
 /** Keep Norwegian texts attached to the right list item after a move or delete. */
-function remapTranslations(d: Content, listPath: string, to: (n: number) => number | null) {
+export function remapTranslations(d: Content, listPath: string, to: (n: number) => number | null) {
   if (!d.no) return;
   const prefix = `${listPath}.`;
   const next: Record<string, string> = {};
@@ -191,11 +191,14 @@ export function ItemControls({
   index,
   label = "item",
   className = "right-3 top-3",
+  onDragStart,
 }: {
   listPath: string;
   index: number;
   label?: string;
   className?: string;
+  /** Shows a drag handle; called on pointer down. */
+  onDragStart?: (e: React.PointerEvent) => void;
 }) {
   const { editing, update } = useContent();
   if (!editing) return null;
@@ -213,6 +216,17 @@ export function ItemControls({
 
   return (
     <div className={`absolute z-20 flex gap-1.5 ${className}`}>
+      {onDragStart && (
+        <button
+          type="button"
+          title="Drag to move"
+          className={`${btn} cursor-grab touch-none active:cursor-grabbing`}
+          onClick={stop}
+          onPointerDown={onDragStart}
+        >
+          ✥
+        </button>
+      )}
       <button type="button" title="Move earlier" className={btn} onClick={(e) => (stop(e), move(index - 1))}>
         ←
       </button>

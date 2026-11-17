@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useContent } from "./ContentProvider";
 
 export function EditBar() {
-  const { editing, dirty, save, discard, lang } = useContent();
+  const { editing, dirty, save, discard, lang, undo, redo } = useContent();
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [error, setError] = useState("");
 
@@ -39,6 +39,22 @@ export function EditBar() {
             {lang === "no" ? "Editing: Norsk" : "Editing: English"}
           </span>
         </span>
+        <button
+          type="button"
+          title="Undo (⌘Z)"
+          onClick={undo}
+          className="flex h-9 w-9 items-center justify-center rounded-full text-lg hover:bg-ink/5"
+        >
+          ↶
+        </button>
+        <button
+          type="button"
+          title="Redo (⇧⌘Z)"
+          onClick={redo}
+          className="flex h-9 w-9 items-center justify-center rounded-full text-lg hover:bg-ink/5"
+        >
+          ↷
+        </button>
         <button
           type="button"
           onClick={discard}

@@ -3,21 +3,27 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { emptyImage } from "@/content/defaults";
-import { AddButton, EditableImage, T } from "@/components/edit/Editable";
+import { AddButton, EditableImage, T, remapTranslations } from "@/components/edit/Editable";
 import { useContent } from "@/components/edit/ContentProvider";
-import { useRef } from "react";
+import { moveOrder, startPointerDrag } from "@/components/edit/drag";
+import { useRef, useState } from "react";
 import { DEFAULT_GAP, DEFAULT_RATIO, ResizableFrame, framePx, frameWidth } from "@/components/edit/Frame";
 import { LookTools, btn as lookBtn, keep, lookStyle } from "@/components/edit/TextLook";
 import type { FrameSize, TextLook } from "@/content/types";
 import { slugify } from "@/lib/path";
+import { groupGallery, tidyFrames, type GalleryUnit } from "@/lib/gallery";
 
 const toolBtn = "rounded-full bg-paper px-3 py-1.5 text-xs font-medium text-ink shadow hover:bg-ink hover:text-paper";
+const handleBtn = `${toolBtn} cursor-grab touch-none active:cursor-grabbing`;
 const imgSizes = "(min-width: 1280px) 1280px, 100vw";
 
 export function CaseStudyView({ slug }: { slug: string }) {
   const { content, editing, update, set, ui } = useContent();
   const router = useRouter();
   const galleryRef = useRef<HTMLDivElement>(null);
+  /** Gallery items being dragged (s..e) and where they would land. */
+  const [drag, setDrag] = useState<{ s: number; e: number } | null>(null);
+  const [drop, setDrop] = useState<{ at: number; a?: 1 | -1; bar: React.CSSProperties } | null>(null);
   const i = content.projects.findIndex((p) => p.slug === slug);
   const project = content.projects[i];
 
@@ -52,11 +58,16 @@ export function CaseStudyView({ slug }: { slug: string }) {
   const gapX = project.gapX ?? DEFAULT_GAP;
   const gapY = project.gapY ?? DEFAULT_GAP;
 
-  /** Put image g and the next one in one row, same height, keeping image g's width when it leaves room. */
-  const sideBySide = (g: number) =>
+  const framesOf = (p: (typeof content.projects)[number]) =>
+    Array.from({ length: p.gallery.length }, (_, n) => p.galleryFrames?.[n] ?? null);
+  const units = groupGallery(project.galleryFrames ?? [], project.gallery.length);
+  const listPath = `${base}.gallery`;
+
+  /** Put image g and the next image in one row, same height, keeping image g's width when it leaves room. */
+  const sideBySide = (g: number, next: number) =>
     update((d) => {
       const p = d.projects[i];
-      const frames = Array.from({ length: p.gallery.length }, (_, n) => p.galleryFrames?.[n] ?? null);
+      const frames = framesOf(p);
       const a = frames[g] ?? {};
       const w1 = a.w && a.w <= 80 ? a.w : 50;
       const w2 = Math.round((100 - w1) * 100) / 100;
@@ -64,7 +75,8 @@ export function CaseStudyView({ slug }: { slug: string }) {
       const row = galleryRef.current?.clientWidth ?? 1200;
       const r2 = Math.round(((framePx(w1, row, gapX) * r1) / framePx(w2, row, gapX)) * 1000) / 1000;
       frames[g] = { ...a, w: w1, r: r1, m: undefined };
-      frames[g + 1] = { ...frames[g + 1], w: w2, r: r2, m: true };
+      // "Same height" stretching only works for direct neighbours; with texts between, the ratio keeps them level.
+      frames[next] = { ...frames[next], w: w2, r: r2, m: next === g + 1 ? true : undefined };
       p.galleryFrames = frames;
     });
 
@@ -72,7 +84,7 @@ export function CaseStudyView({ slug }: { slug: string }) {
   const toggleFull = (g: number) =>
     update((d) => {
       const p = d.projects[i];
-      const frames = Array.from({ length: p.gallery.length }, (_, n) => p.galleryFrames?.[n] ?? null);
+      const frames = framesOf(p);
       const full = (frames[g]?.w ?? 50) >= 100;
       frames[g] = { ...frames[g], w: full ? undefined : 100, m: undefined };
       if (frames[g + 1]?.m) frames[g + 1] = { ...frames[g + 1], m: undefined };
@@ -81,24 +93,197 @@ export function CaseStudyView({ slug }: { slug: string }) {
 
   const removeItem = (g: number) =>
     update((d) => {
-      d.projects[i].gallery.splice(g, 1);
-      const frames = d.projects[i].galleryFrames;
-      frames?.splice(g, 1);
-      // The item that slides into this spot no longer has a partner to match.
-      if (frames?.[g]?.m) frames[g] = { ...frames[g], m: undefined };
+      const p = d.projects[i];
+      const frames = framesOf(p);
+      // Texts stuck to a removed image stay, as free text blocks.
+      if (!frames[g]?.t) {
+        const u = groupGallery(frames, frames.length).find((x) => x.kind === "image" && x.img === g);
+        if (u?.kind === "image") for (const t of [...u.above, ...u.below]) frames[t] = { ...frames[t], a: undefined };
+      }
+      p.gallery.splice(g, 1);
+      frames.splice(g, 1);
+      tidyFrames(frames, p.gallery.length);
+      p.galleryFrames = frames;
+      remapTranslations(d, listPath, (n) => (n === g ? null : n > g ? n - 1 : n));
     });
 
   /** Add text blocks at the end of the gallery: one across the row, or two side by side. */
   const addText = (columns: 1 | 2) =>
     update((d) => {
       const p = d.projects[i];
-      const frames = Array.from({ length: p.gallery.length }, (_, n) => p.galleryFrames?.[n] ?? null);
+      const frames = framesOf(p);
       for (let n = 0; n < columns; n++) {
         p.gallery.push("");
         frames.push(columns === 1 ? { t: true, w: 100 } : { t: true });
       }
       p.galleryFrames = frames;
     });
+
+  /** Add a text stuck above (1) or under (-1) an image. */
+  const addCaption = (u: Extract<GalleryUnit, { kind: "image" }>, side: 1 | -1) =>
+    update((d) => {
+      const p = d.projects[i];
+      const frames = framesOf(p);
+      const at = side === 1 ? u.s : u.e + 1;
+      p.gallery.splice(at, 0, "");
+      frames.splice(at, 0, { t: true, a: side });
+      p.galleryFrames = frames;
+      remapTranslations(d, listPath, (n) => (n >= at ? n + 1 : n));
+    });
+
+  /** Where dragged items would land for a pointer at x, y (null = not over the gallery). */
+  function dropAt(x: number, y: number, text: boolean) {
+    const root = galleryRef.current;
+    const el = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-gi]");
+    if (!root || !el || !root.contains(el)) return null;
+    const unit = el.closest<HTMLElement>("[data-unit]") ?? el;
+    const rr = root.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    const ur = unit.getBoundingClientRect();
+    const g = Number(el.dataset.gi);
+    const space = (v: number) => Math.min(Math.max(v, 8), 24) / 2 + 2;
+    const hbar = (b: DOMRect, top: boolean, gap: number): React.CSSProperties => ({
+      left: b.left - rr.left,
+      width: b.width,
+      top: (top ? b.top - space(gap) : b.bottom + space(gap) - 4) - rr.top,
+      height: 4,
+    });
+    const vbar = (b: DOMRect, left: boolean): React.CSSProperties => ({
+      top: b.top - rr.top,
+      height: b.height,
+      left: (left ? b.left - space(gapX) : b.right + space(gapX) - 4) - rr.left,
+      width: 4,
+    });
+
+    if (text && el.dataset.kind === "img") {
+      // Top or bottom part of an image: stick the text to it.
+      const fy = (y - r.top) / r.height;
+      if (fy < 0.3) return { at: g, a: 1 as const, bar: hbar(r, true, 12) };
+      if (fy > 0.7) return { at: g + 1, a: -1 as const, bar: hbar(r, false, 12) };
+    }
+    if (text && el.dataset.kind === "cap") {
+      const top = y < r.top + r.height / 2;
+      return { at: top ? g : g + 1, a: Number(el.dataset.side) as 1 | -1, bar: hbar(r, top, 12) };
+    }
+    // Before or after the whole block. Wide blocks go above / below, narrow ones left / right.
+    const us = Number(unit.dataset.us);
+    const ue = Number(unit.dataset.ue);
+    const wide = ur.width > rr.width * 0.7;
+    const before = wide ? y < ur.top + ur.height / 2 : x < ur.left + ur.width / 2;
+    return { at: before ? us : ue + 1, a: undefined, bar: wide ? hbar(ur, before, gapY) : vbar(ur, before) };
+  }
+
+  /** Drag gallery items s..e (an image with its texts, or one text). */
+  function startDrag(ev: React.PointerEvent, s: number, e: number) {
+    const text = s === e && !!project.galleryFrames?.[s]?.t;
+    let target: ReturnType<typeof dropAt> = null;
+    setDrag({ s, e });
+    startPointerDrag(ev, {
+      onMove(x, y) {
+        const next = dropAt(x, y, text);
+        if (next) {
+          target = next;
+          setDrop(next);
+        }
+      },
+      onEnd(cancelled) {
+        setDrag(null);
+        setDrop(null);
+        if (cancelled || !target) return;
+        const { at, a } = target;
+        update((d) => {
+          const p = d.projects[i];
+          const n = p.gallery.length;
+          let frames = framesOf(p);
+          const order = moveOrder(n, s, e, at);
+          if (order) {
+            p.gallery = order.map((o) => p.gallery[o]);
+            frames = order.map((o) => frames[o]);
+            remapTranslations(d, listPath, (o) => order.indexOf(o));
+          }
+          const pos = order ? order.indexOf(s) : s;
+          if (text) frames[pos] = { ...frames[pos], a };
+          else if (order) {
+            // A moved image no longer has the partner it was matched to.
+            const img = order.indexOf(e);
+            for (let k = pos; k <= img; k++) if (!frames[k]?.t && frames[k]?.m) frames[k] = { ...frames[k], m: undefined };
+          }
+          tidyFrames(frames, n);
+          p.galleryFrames = frames;
+        });
+      },
+    });
+  }
+
+  const dragging = (g: number) => (drag && g >= drag.s && g <= drag.e ? "opacity-40" : "");
+  const moveHandle = (s: number, e: number, cls: string) => (
+    <button
+      type="button"
+      title="Drag to move"
+      className={cls}
+      onMouseDown={keep}
+      onClick={(ev) => ev.preventDefault()}
+      onPointerDown={(ev) => startDrag(ev, s, e)}
+    >
+      ✥
+    </button>
+  );
+
+  /** A text block in the gallery: free (kind "text") or stuck to an image (kind "cap", side 1 = above, -1 = under). */
+  const textBlock = (g: number, side?: 1 | -1) => {
+    const fr = project.galleryFrames?.[g] ?? { t: true };
+    const full = (fr.w ?? 50) >= 100;
+    const free = side == null;
+    return (
+      <div
+        key={g}
+        data-gi={g}
+        data-kind={free ? "text" : "cap"}
+        {...(free ? { "data-unit": 1, "data-us": g, "data-ue": g } : { "data-side": side })}
+        className={`${free ? "w-full shrink-0 sm:w-[var(--fw)]" : ""} ${dragging(g)}`}
+        style={free ? { ["--fw" as string]: frameWidth(fr.w ?? 50, gapX) } : undefined}
+      >
+        <LookTools
+          look={fr.l}
+          onChange={(l) => setGalleryFrame(g)({ ...fr, l })}
+          defaultWeight={400}
+          width={false}
+          extra={
+            <>
+              {moveHandle(g, g, `${lookBtn} cursor-grab touch-none active:cursor-grabbing`)}
+              {free && (
+                <button
+                  type="button"
+                  title={full ? "Make this text half a row, so another text or image fits beside it" : "Make this text take the whole row"}
+                  className={lookBtn}
+                  onMouseDown={keep}
+                  onClick={() => toggleFull(g)}
+                >
+                  {full ? "◧ Half" : "▭ Full"}
+                </button>
+              )}
+              <button type="button" title="Remove this text" className={lookBtn} onMouseDown={keep} onClick={() => removeItem(g)}>
+                ✕
+              </button>
+            </>
+          }
+        >
+          <T
+            path={`${base}.gallery.${g}`}
+            as="p"
+            multiline
+            style={lookStyle(fr.l)}
+            className={
+              free
+                ? "block min-h-[1.5em] whitespace-pre-line text-[length:calc(var(--s,1)*1.125rem)] leading-relaxed text-gray sm:text-[length:calc(var(--s,1)*1.25rem)]"
+                : "block min-h-[1.5em] whitespace-pre-line text-[length:calc(var(--s,1)*0.95rem)] leading-relaxed text-gray sm:text-[length:calc(var(--s,1)*1rem)]"
+            }
+            placeholder={side === 1 ? "Text above the image…" : side === -1 ? "Text under the image…" : "Write something…"}
+          />
+        </LookTools>
+      </div>
+    );
+  };
 
   function changeSlug() {
     const input = prompt("Page link (letters, numbers and dashes):", project.slug);
@@ -203,88 +388,81 @@ export function CaseStudyView({ slug }: { slug: string }) {
         </ResizableFrame>
       </div>
 
-      <div ref={galleryRef} className="flex flex-wrap items-start" style={{ columnGap: gapX, rowGap: gapY }}>
-        {project.gallery.map((_, g) => {
+      <div ref={galleryRef} className="relative flex flex-wrap items-start" style={{ columnGap: gapX, rowGap: gapY }}>
+        {units.map((u, n) => {
+          if (u.kind === "text") return textBlock(u.text);
+          const g = u.img;
           const fr = project.galleryFrames?.[g];
-          if (fr?.t) {
-            const full = (fr.w ?? 50) >= 100;
-            return (
-              <div key={g} className="w-full shrink-0 sm:w-[var(--fw)]" style={{ ["--fw" as string]: frameWidth(fr.w ?? 50, gapX) }}>
-                <LookTools
-                  look={fr.l}
-                  onChange={(l) => setGalleryFrame(g)({ ...fr, l })}
-                  defaultWeight={400}
-                  width={false}
-                  extra={
-                    <>
-                      <button
-                        type="button"
-                        title={full ? "Make this text half a row, so another text or image fits beside it" : "Make this text take the whole row"}
-                        className={lookBtn}
-                        onMouseDown={keep}
-                        onClick={() => toggleFull(g)}
-                      >
-                        {full ? "◧ Half" : "▭ Full"}
-                      </button>
-                      <button type="button" title="Remove this text" className={lookBtn} onMouseDown={keep} onClick={() => removeItem(g)}>
-                        ✕
-                      </button>
-                    </>
-                  }
-                >
-                  <T
-                    path={`${base}.gallery.${g}`}
-                    as="p"
-                    multiline
-                    style={lookStyle(fr.l)}
-                    className="block min-h-[1.5em] whitespace-pre-line text-[length:calc(var(--s,1)*1.125rem)] leading-relaxed text-gray sm:text-[length:calc(var(--s,1)*1.25rem)]"
-                    placeholder="Write something…"
-                  />
-                </LookTools>
-              </div>
-            );
-          }
-          return (
-          <ResizableFrame
-            key={g}
-            size={project.galleryFrames?.[g]}
-            onResize={setGalleryFrame(g)}
-            gap={gapX}
-            defaultWidth={50}
-            background={project.tint}
-            tools={
-              <>
-                {(project.galleryFrames?.[g]?.w ?? 50) < 100 && g < project.gallery.length - 1 && (
+          const wrapped = u.above.length > 0 || u.below.length > 0;
+          const nextUnit = units[n + 1];
+          const unitAttrs = { unit: 1, us: u.s, ue: u.e };
+          const frame = (
+            <ResizableFrame
+              key={g}
+              // Inside a block with texts the frame fills the block; "same height" stretching doesn't apply there.
+              size={wrapped && fr?.m ? { ...fr, m: undefined } : fr}
+              onResize={setGalleryFrame(g)}
+              gap={gapX}
+              defaultWidth={50}
+              background={project.tint}
+              className={`${wrapped ? "sm:w-full!" : ""} ${dragging(g)}`}
+              data={{ gi: g, kind: "img", ...(wrapped ? {} : unitAttrs) }}
+              tools={
+                <>
+                  {moveHandle(u.s, u.e, handleBtn)}
+                  {(fr?.w ?? 50) < 100 && nextUnit?.kind === "image" && (
+                    <button
+                      type="button"
+                      title="Put this image and the next one side by side, same height"
+                      onClick={() => sideBySide(g, nextUnit.img)}
+                      className={toolBtn}
+                    >
+                      ⇆ Side by side
+                    </button>
+                  )}
                   <button
                     type="button"
-                    title="Put this image and the next one side by side, same height"
-                    onClick={() => sideBySide(g)}
+                    title="Make this image take the whole row, or half of it"
+                    onClick={() => toggleFull(g)}
                     className={toolBtn}
                   >
-                    ⇆ Side by side
+                    {(fr?.w ?? 50) >= 100 ? "◧ Half width" : "▭ Full width"}
                   </button>
-                )}
-                <button
-                  type="button"
-                  title="Make this image take the whole row, or half of it"
-                  onClick={() => toggleFull(g)}
-                  className={toolBtn}
-                >
-                  {(project.galleryFrames?.[g]?.w ?? 50) >= 100 ? "◧ Half width" : "▭ Full width"}
-                </button>
-              </>
-            }
-          >
-            <EditableImage
-              path={`${base}.gallery.${g}`}
-              alt={`${project.title} — image ${g + 1}`}
-              sizes={imgSizes}
-              className={project.galleryFrames?.[g]?.f === false ? "object-contain" : "object-cover"}
-              onRemove={() => removeItem(g)}
-            />
-          </ResizableFrame>
+                  <button type="button" title="Add a text above this image" onClick={() => addCaption(u, 1)} className={toolBtn}>
+                    + Text above
+                  </button>
+                  <button type="button" title="Add a text under this image" onClick={() => addCaption(u, -1)} className={toolBtn}>
+                    + Text below
+                  </button>
+                </>
+              }
+            >
+              <EditableImage
+                path={`${base}.gallery.${g}`}
+                alt={`${project.title} — image ${g + 1}`}
+                sizes={imgSizes}
+                className={fr?.f === false ? "object-contain" : "object-cover"}
+                onRemove={() => removeItem(g)}
+              />
+            </ResizableFrame>
+          );
+          if (!wrapped) return frame;
+          return (
+            <div
+              key={`u${g}`}
+              data-unit={1}
+              data-us={u.s}
+              data-ue={u.e}
+              className="flex w-full shrink-0 flex-col gap-3 sm:w-[var(--fw)]"
+              style={{ ["--fw" as string]: frameWidth(fr?.w ?? 50, gapX) }}
+            >
+              {u.above.map((t) => textBlock(t, 1))}
+              {frame}
+              {u.below.map((t) => textBlock(t, -1))}
+            </div>
           );
         })}
+        {drop && <div className="pointer-events-none absolute z-40 rounded-full bg-accent shadow" style={drop.bar} />}
         <AddButton
           style={{ ["--g" as string]: `${gapX}px` }}
           className="aspect-[4/3] w-full sm:w-[calc(50%-var(--g)/2)]"

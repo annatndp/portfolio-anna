@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { getAt } from "@/lib/path";
 import { useContent } from "./ContentProvider";
 
@@ -77,6 +77,15 @@ export function RichT({ path, className = "", placeholder = "Type here…" }: { 
   const html = toRichHtml(value);
   const st = getAt(content, `${path}Style`) as TextStyle | undefined;
   const style = styleFor(st);
+  /** HTML the editor itself just saved: the box already shows it, so it isn't redrawn (which would lose the selection). */
+  const shown = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    if (!editing) shown.current = null; // the box is gone; draw it again when it comes back
+    if (!editing || !ref.current || html === shown.current) return;
+    ref.current.innerHTML = html;
+    shown.current = html;
+  }, [editing, html]);
 
   if (!editing) return value ? <div className={`rich ${className}`} style={style} dangerouslySetInnerHTML={{ __html: html }} /> : null;
 
@@ -85,7 +94,9 @@ export function RichT({ path, className = "", placeholder = "Type here…" }: { 
 
   const save = () => {
     const next = sanitizeRich(ref.current?.innerHTML ?? "").replace(/(<br>|\s)+$/g, "");
-    if (next !== html) setText(path, next);
+    if (next === html) return;
+    shown.current = toRichHtml(next);
+    setText(path, next);
   };
   // Toolbar buttons keep the text selection (mousedown is cancelled), apply the command, then save.
   const cmd = (name: string, arg?: string) => (e: React.MouseEvent) => {
@@ -189,7 +200,6 @@ export function RichT({ path, className = "", placeholder = "Type here…" }: { 
         )}
       </div>
       <div
-        key={html}
         style={style}
         ref={ref}
         className={`rich editable ${className}`}
@@ -199,7 +209,6 @@ export function RichT({ path, className = "", placeholder = "Type here…" }: { 
         data-placeholder={placeholder}
         onClick={(e) => e.preventDefault()}
         onBlur={save}
-        dangerouslySetInnerHTML={{ __html: html }}
       />
     </div>
   );
