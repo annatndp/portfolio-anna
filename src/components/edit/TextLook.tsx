@@ -40,11 +40,14 @@ export function LookTools({
   onChange,
   defaultWeight,
   width = true,
+  weight = true,
   extra,
   children,
 }: {
   /** Show the Auto / ½ / Full text box width buttons. */
   width?: boolean;
+  /** Show the weight menu (off where the text has its own toolbar to set the weight of marked words). */
+  weight?: boolean;
   /** More buttons at the end of the toolbar. */
   extra?: React.ReactNode;
   look?: TextLook;
@@ -78,8 +81,8 @@ export function LookTools({
           <button type="button" title="Bigger" className={btn} onMouseDown={keep} onClick={() => size(0.05)}>
             A+
           </button>
-          <span className="mx-1 h-5 w-px bg-ink/15" />
-          <select
+          {weight && <span className="mx-1 h-5 w-px bg-ink/15" />}
+          {weight && <select
             title="Weight"
             value={look?.w ?? defaultWeight}
             onChange={(e) => {
@@ -93,7 +96,7 @@ export function LookTools({
                 {name}
               </option>
             ))}
-          </select>
+          </select>}
           <span className="mx-1 h-5 w-px bg-ink/15" />
           {(["ink", "gray", "accent"] as const).map((c) => (
             <button

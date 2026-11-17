@@ -41,8 +41,11 @@ export function ResizableFrame({
   className = "",
   tools,
   data,
+  boxStyle,
   children,
 }: {
+  /** Extra inline style on the frame box. */
+  boxStyle?: React.CSSProperties;
   /** data-* attributes on the frame box (used by drag and drop). */
   data?: Record<string, string | number>;
   /** Extra edit-mode buttons, shown top right. */
@@ -89,6 +92,7 @@ export function ResizableFrame({
   const setCorner = (c: number) => onResize({ ...size, c: c === DEFAULT_CORNER ? undefined : c });
 
   const style = {
+    ...boxStyle,
     background,
     borderRadius: corner,
     aspectRatio: `${1 / r}`,

@@ -13,6 +13,15 @@ const SIZES = new Set(["1", "2", "3", "4", "5"]);
 // Colors are stored as placeholder values; globals.css maps them to the site colors.
 const COLORS = { dark: "#000001", grey: "#000002" };
 const COLOR_SET = new Set(Object.values(COLORS));
+// span classes: "r" = pushed right, "w300"…"w700" = weight of the marked text.
+const WEIGHTS: [number, string][] = [
+  [300, "Light"],
+  [400, "Regular"],
+  [500, "Medium"],
+  [600, "Semibold"],
+  [700, "Bold"],
+];
+const SPAN_CLASSES = new Set(["r", ...WEIGHTS.map(([w]) => `w${w}`)]);
 
 const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -24,7 +33,10 @@ export function sanitizeRich(html: string) {
       const t = name.toLowerCase();
       if (!TAGS.has(t)) return "";
       if (tag.startsWith("</")) return `</${t}>`;
-      if (t === "span") return /class="r"/.test(attrs) ? `<span class="r">` : "<span>";
+      if (t === "span") {
+        const cls = attrs.match(/class="([^"]*)"/)?.[1];
+        return cls && SPAN_CLASSES.has(cls) ? `<span class="${cls}">` : "<span>";
+      }
       if (t !== "font") return `<${t}>`;
       const face = attrs.match(/face="([^"]*)"/)?.[1];
       const size = attrs.match(/size="([^"]*)"/)?.[1];
@@ -69,14 +81,35 @@ const btn =
   "flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm text-ink hover:bg-ink hover:text-paper";
 
 /** Rich text that becomes an editor with a small toolbar in edit mode. */
-export function RichT({ path, className = "", placeholder = "Type here…" }: { path: string; className?: string; placeholder?: string }) {
+export function RichT({
+  path,
+  className = "",
+  placeholder = "Type here…",
+  floating = false,
+  style: extraStyle,
+  textStyle,
+  onTextStyle,
+}: {
+  path: string;
+  className?: string;
+  placeholder?: string;
+  /** Toolbar only while the text is being edited, floating under it (for small texts between images). */
+  floating?: boolean;
+  /** Extra inline style (e.g. a text look). */
+  style?: React.CSSProperties;
+  /** Spacing stored somewhere else than `<path>Style` (needed when the text lives in a list). */
+  textStyle?: TextStyle;
+  onTextStyle?: (next: TextStyle | undefined) => void;
+}) {
   const { editing, text, setText, content, set } = useContent();
   const ref = useRef<HTMLDivElement>(null);
   const [panel, setPanel] = useState(false);
+  const [weightMenu, setWeightMenu] = useState(false);
   const value = text(path);
   const html = toRichHtml(value);
-  const st = getAt(content, `${path}Style`) as TextStyle | undefined;
-  const style = styleFor(st);
+  const st = onTextStyle ? textStyle : (getAt(content, `${path}Style`) as TextStyle | undefined);
+  const putStyle = (next: TextStyle | undefined) => (onTextStyle ? onTextStyle(next) : set(`${path}Style`, next));
+  const style = { ...extraStyle, ...styleFor(st) };
   /** HTML the editor itself just saved: the box already shows it, so it isn't redrawn (which would lose the selection). */
   const shown = useRef<string | null>(null);
 
@@ -90,7 +123,7 @@ export function RichT({ path, className = "", placeholder = "Type here…" }: { 
   if (!editing) return value ? <div className={`rich ${className}`} style={style} dangerouslySetInnerHTML={{ __html: html }} /> : null;
 
   const cur = { ...DEFAULT_STYLE, ...st };
-  const setStyle = (k: keyof TextStyle, v: number) => set(`${path}Style`, { ...st, [k]: v });
+  const setStyle = (k: keyof TextStyle, v: number) => putStyle({ ...st, [k]: v });
 
   const save = () => {
     const next = sanitizeRich(ref.current?.innerHTML ?? "").replace(/(<br>|\s)+$/g, "");
@@ -104,6 +137,27 @@ export function RichT({ path, className = "", placeholder = "Type here…" }: { 
     e.stopPropagation();
     document.execCommand("styleWithCSS", false, "false");
     document.execCommand(name, false, arg);
+    save();
+  };
+
+  // Give only the marked text a weight: wrap it in a span (dropping weights / bold inside it), keep it marked.
+  const setWeight = (w: number) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setWeightMenu(false);
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !ref.current) return;
+    const range = sel.getRangeAt(0);
+    if (range.collapsed || !ref.current.contains(range.commonAncestorContainer)) return;
+    const span = document.createElement("span");
+    span.className = `w${w}`;
+    span.appendChild(range.extractContents());
+    span.querySelectorAll('span[class^="w"], b, strong').forEach((el) => el.replaceWith(...el.childNodes));
+    range.insertNode(span);
+    const again = document.createRange();
+    again.selectNodeContents(span);
+    sel.removeAllRanges();
+    sel.addRange(again);
     save();
   };
 
@@ -146,10 +200,38 @@ export function RichT({ path, className = "", placeholder = "Type here…" }: { 
   };
 
   return (
-    <div className="relative">
-      <div className="mb-2 flex flex-wrap items-center gap-1 rounded-xl border border-ink/10 bg-paper p-1 shadow-sm">
+    <div className="group/rt relative">
+      <div
+        className={
+          floating
+            ? "absolute left-0 top-full z-30 mt-2 hidden w-max max-w-[min(640px,90vw)] flex-wrap items-center gap-1 rounded-xl border border-ink/10 bg-paper p-1 font-sans text-sm font-normal not-italic normal-case tracking-normal shadow-lg group-focus-within/rt:flex"
+            : "mb-2 flex flex-wrap items-center gap-1 rounded-xl border border-ink/10 bg-paper p-1 shadow-sm"
+        }
+      >
         <button type="button" title="Bold" className={`${btn} font-bold`} onMouseDown={cmd("bold")}>B</button>
         <button type="button" title="Italic" className={`${btn} italic`} onMouseDown={cmd("italic")}>I</button>
+        <div className="relative">
+          <button
+            type="button"
+            title="Weight of the marked text"
+            className={`${btn} ${weightMenu ? "bg-ink text-paper" : ""}`}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setWeightMenu((v) => !v);
+            }}
+          >
+            Weight ▾
+          </button>
+          {weightMenu && (
+            <div className="absolute left-0 top-full z-40 mt-1 flex flex-col rounded-lg bg-paper p-1 shadow-lg ring-1 ring-ink/10">
+              {WEIGHTS.map(([w, name]) => (
+                <button key={w} type="button" className={`${btn} justify-start`} style={{ fontWeight: w }} onMouseDown={setWeight(w)}>
+                  {name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <span className="mx-1 h-5 w-px bg-ink/15" />
         <button type="button" title="Sans font" className={btn} onMouseDown={cmd("fontName", "sans")}>Sans</button>
         <button type="button" title="Serif font" className={`${btn} font-serif italic`} onMouseDown={cmd("fontName", "serif")}>Serif</button>
@@ -193,7 +275,7 @@ export function RichT({ path, className = "", placeholder = "Type here…" }: { 
             <Slider label="Line height" value={cur.lh} min={1} max={2.4} step={0.05} onChange={(v) => setStyle("lh", v)} />
             <Slider label="Letter spacing" value={cur.ls} min={-0.05} max={0.2} step={0.005} unit="em" onChange={(v) => setStyle("ls", v)} />
             <Slider label="Space between lines" value={cur.gap} min={0} max={1.5} step={0.05} unit="em" onChange={(v) => setStyle("gap", v)} />
-            <button type="button" className="self-start text-xs text-gray underline hover:text-ink" onClick={() => set(`${path}Style`, undefined)}>
+            <button type="button" className="self-start text-xs text-gray underline hover:text-ink" onClick={() => putStyle(undefined)}>
               Reset spacing
             </button>
           </div>

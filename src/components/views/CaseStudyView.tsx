@@ -11,10 +11,13 @@ import { DEFAULT_GAP, DEFAULT_RATIO, ResizableFrame, framePx, frameWidth } from 
 import { LookTools, btn as lookBtn, keep, lookStyle } from "@/components/edit/TextLook";
 import type { FrameSize, TextLook } from "@/content/types";
 import { slugify } from "@/lib/path";
+import { RichT } from "@/components/edit/RichText";
 import { groupGallery, tidyFrames, type GalleryUnit } from "@/lib/gallery";
 
 const toolBtn = "rounded-full bg-paper px-3 py-1.5 text-xs font-medium text-ink shadow hover:bg-ink hover:text-paper";
 const handleBtn = `${toolBtn} cursor-grab touch-none active:cursor-grabbing`;
+/** Default space in px between a text stuck to an image and the image. */
+const CAPTION_GAP = 12;
 const imgSizes = "(min-width: 1280px) 1280px, 100vw";
 
 export function CaseStudyView({ slug }: { slug: string }) {
@@ -62,6 +65,24 @@ export function CaseStudyView({ slug }: { slug: string }) {
     Array.from({ length: p.gallery.length }, (_, n) => p.galleryFrames?.[n] ?? null);
   const units = groupGallery(project.galleryFrames ?? [], project.gallery.length);
   const listPath = `${base}.gallery`;
+  // Which row each block lands in (widths are shares of the row), so "Full row" texts can go above / under their row.
+  const rowFirst: number[] = [];
+  const rowLast: number[] = [];
+  {
+    let start = 0;
+    let sum = 0;
+    units.forEach((u, n) => {
+      const w = Math.min(project.galleryFrames?.[u.kind === "image" ? u.img : u.text]?.w ?? 50, 100);
+      if (sum > 0 && sum + w > 100.01) {
+        for (let k = start; k < n; k++) rowLast[k] = n - 1;
+        start = n;
+        sum = 0;
+      }
+      rowFirst[n] = start;
+      sum += w;
+    });
+    for (let k = start; k < units.length; k++) rowLast[k] = units.length - 1;
+  }
 
   /** Put image g and the next image in one row, same height, keeping image g's width when it leaves room. */
   const sideBySide = (g: number, next: number) =>
@@ -230,27 +251,69 @@ export function CaseStudyView({ slug }: { slug: string }) {
   );
 
   /** A text block in the gallery: free (kind "text") or stuck to an image (kind "cap", side 1 = above, -1 = under). */
-  const textBlock = (g: number, side?: 1 | -1) => {
+  /** A text block. top = it is its own item in the gallery row (free text, or a text across the whole row):
+   * o = its place in the row order on larger screens, s..e = the block it belongs to (for drag and drop). */
+  const textBlock = (g: number, side?: 1 | -1, top?: { o: number; s: number; e: number }) => {
     const fr = project.galleryFrames?.[g] ?? { t: true };
     const full = (fr.w ?? 50) >= 100;
     const free = side == null;
+    const space = side === 1 ? { marginBottom: fr.g ?? CAPTION_GAP } : side === -1 ? { marginTop: fr.g ?? CAPTION_GAP } : undefined;
     return (
       <div
         key={g}
         data-gi={g}
         data-kind={free ? "text" : "cap"}
-        {...(free ? { "data-unit": 1, "data-us": g, "data-ue": g } : { "data-side": side })}
-        className={`${free ? "w-full shrink-0 sm:w-[var(--fw)]" : ""} ${dragging(g)}`}
-        style={free ? { ["--fw" as string]: frameWidth(fr.w ?? 50, gapX) } : undefined}
+        {...(top && { "data-unit": 1, "data-us": top.s, "data-ue": top.e })}
+        {...(!free && { "data-side": side })}
+        className={`${top ? "w-full shrink-0 sm:order-[var(--o)]" : ""} ${free ? "sm:w-[var(--fw)]" : ""} ${dragging(g)}`}
+        style={{
+          ...space,
+          ...(top && { ["--o" as string]: top.o }),
+          ...(free && { ["--fw" as string]: frameWidth(fr.w ?? 50, gapX) }),
+        }}
       >
         <LookTools
           look={fr.l}
           onChange={(l) => setGalleryFrame(g)({ ...fr, l })}
           defaultWeight={400}
           width={false}
+          weight={false}
           extra={
             <>
+              {!free && (
+                <label
+                  title="Space between this text and the image"
+                  className="flex items-center gap-1.5 px-1 text-ink/70"
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  ↕
+                  <input
+                    type="range"
+                    min={0}
+                    max={96}
+                    step={2}
+                    value={fr.g ?? CAPTION_GAP}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      setGalleryFrame(g)({ ...fr, g: v === CAPTION_GAP ? undefined : v });
+                    }}
+                    className="w-20 accent-[var(--accent)]"
+                  />
+                  <span className="w-9 tabular-nums">{fr.g ?? CAPTION_GAP}px</span>
+                </label>
+              )}
               {moveHandle(g, g, `${lookBtn} cursor-grab touch-none active:cursor-grabbing`)}
+              {!free && (
+                <button
+                  type="button"
+                  title={full ? "Make this text as wide as its image" : "Make this text as wide as the whole row of images"}
+                  className={lookBtn}
+                  onMouseDown={keep}
+                  onClick={() => setGalleryFrame(g)({ ...fr, w: full ? undefined : 100 })}
+                >
+                  {full ? "◧ Image width" : "▭ Full row"}
+                </button>
+              )}
               {free && (
                 <button
                   type="button"
@@ -268,15 +331,16 @@ export function CaseStudyView({ slug }: { slug: string }) {
             </>
           }
         >
-          <T
+          <RichT
             path={`${base}.gallery.${g}`}
-            as="p"
-            multiline
+            floating
             style={lookStyle(fr.l)}
+            textStyle={fr.sp}
+            onTextStyle={(sp) => setGalleryFrame(g)({ ...fr, sp })}
             className={
               free
-                ? "block min-h-[1.5em] whitespace-pre-line text-[length:calc(var(--s,1)*1.125rem)] leading-relaxed text-gray sm:text-[length:calc(var(--s,1)*1.25rem)]"
-                : "block min-h-[1.5em] whitespace-pre-line text-[length:calc(var(--s,1)*0.95rem)] leading-relaxed text-gray sm:text-[length:calc(var(--s,1)*1rem)]"
+                ? "block min-h-[1.5em] text-[length:calc(var(--s,1)*1.125rem)] leading-relaxed text-gray sm:text-[length:calc(var(--s,1)*1.25rem)]"
+                : "block min-h-[1.5em] text-[length:calc(var(--s,1)*0.95rem)] leading-relaxed text-gray sm:text-[length:calc(var(--s,1)*1rem)]"
             }
             placeholder={side === 1 ? "Text above the image…" : side === -1 ? "Text under the image…" : "Write something…"}
           />
@@ -390,10 +454,16 @@ export function CaseStudyView({ slug }: { slug: string }) {
 
       <div ref={galleryRef} className="relative flex flex-wrap items-start" style={{ columnGap: gapX, rowGap: gapY }}>
         {units.map((u, n) => {
-          if (u.kind === "text") return textBlock(u.text);
+          if (u.kind === "text") return textBlock(u.text, undefined, { o: n * 100, s: u.s, e: u.e });
           const g = u.img;
           const fr = project.galleryFrames?.[g];
-          const wrapped = u.above.length > 0 || u.below.length > 0;
+          // Texts set to "Full row" sit above / under the whole row on larger screens (on phones, right by the image).
+          const isFull = (t: number) => (project.galleryFrames?.[t]?.w ?? 0) >= 100;
+          const inAbove = u.above.filter((t) => !isFull(t));
+          const inBelow = u.below.filter((t) => !isFull(t));
+          const wrapped = inAbove.length > 0 || inBelow.length > 0;
+          const fullAbove = u.above.filter(isFull).map((t, k) => textBlock(t, 1, { o: rowFirst[n] * 100 - 50 + k, s: u.s, e: u.e }));
+          const fullBelow = u.below.filter(isFull).map((t, k) => textBlock(t, -1, { o: rowLast[n] * 100 + 50 + k, s: u.s, e: u.e }));
           const nextUnit = units[n + 1];
           const unitAttrs = { unit: 1, us: u.s, ue: u.e };
           const frame = (
@@ -405,7 +475,8 @@ export function CaseStudyView({ slug }: { slug: string }) {
               gap={gapX}
               defaultWidth={50}
               background={project.tint}
-              className={`${wrapped ? "sm:w-full!" : ""} ${dragging(g)}`}
+              className={`${wrapped ? "sm:w-full!" : "sm:order-[var(--o)]"} ${dragging(g)}`}
+              boxStyle={wrapped ? undefined : ({ ["--o" as string]: n * 100 } as React.CSSProperties)}
               data={{ gi: g, kind: "img", ...(wrapped ? {} : unitAttrs) }}
               tools={
                 <>
@@ -446,32 +517,37 @@ export function CaseStudyView({ slug }: { slug: string }) {
               />
             </ResizableFrame>
           );
-          if (!wrapped) return frame;
-          return (
-            <div
-              key={`u${g}`}
-              data-unit={1}
-              data-us={u.s}
-              data-ue={u.e}
-              className="flex w-full shrink-0 flex-col gap-3 sm:w-[var(--fw)]"
-              style={{ ["--fw" as string]: frameWidth(fr?.w ?? 50, gapX) }}
-            >
-              {u.above.map((t) => textBlock(t, 1))}
-              {frame}
-              {u.below.map((t) => textBlock(t, -1))}
-            </div>
-          );
+          return [
+            ...fullAbove,
+            wrapped ? (
+              <div
+                key={`u${g}`}
+                data-unit={1}
+                data-us={u.s}
+                data-ue={u.e}
+                className="flex w-full shrink-0 flex-col sm:order-[var(--o)] sm:w-[var(--fw)]"
+                style={{ ["--fw" as string]: frameWidth(fr?.w ?? 50, gapX), ["--o" as string]: n * 100 }}
+              >
+                {inAbove.map((t) => textBlock(t, 1))}
+                {frame}
+                {inBelow.map((t) => textBlock(t, -1))}
+              </div>
+            ) : (
+              frame
+            ),
+            ...fullBelow,
+          ];
         })}
         {drop && <div className="pointer-events-none absolute z-40 rounded-full bg-accent shadow" style={drop.bar} />}
         <AddButton
           style={{ ["--g" as string]: `${gapX}px` }}
-          className="aspect-[4/3] w-full sm:w-[calc(50%-var(--g)/2)]"
+          className="aspect-[4/3] w-full sm:order-[999999] sm:w-[calc(50%-var(--g)/2)]"
           onClick={() => update((d) => void d.projects[i].gallery.push(emptyImage))}
         >
           Add image
         </AddButton>
         {editing && (
-          <div className="flex w-full flex-wrap gap-3">
+          <div className="flex w-full flex-wrap gap-3 sm:order-[999999]">
             <AddButton className="flex-1 py-4" onClick={() => addText(1)}>
               Add text
             </AddButton>
