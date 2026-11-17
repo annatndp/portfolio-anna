@@ -257,7 +257,31 @@ export function CaseStudyView({ slug }: { slug: string }) {
     const fr = project.galleryFrames?.[g] ?? { t: true };
     const full = (fr.w ?? 50) >= 100;
     const free = side == null;
-    const space = side === 1 ? { marginBottom: fr.g ?? CAPTION_GAP } : side === -1 ? { marginTop: fr.g ?? CAPTION_GAP } : undefined;
+    // Space above / under the text. Stuck texts start with a small gap on the image side.
+    const pt = fr.pt ?? (side === -1 ? (fr.g ?? CAPTION_GAP) : 0);
+    const pb = fr.pb ?? (side === 1 ? (fr.g ?? CAPTION_GAP) : 0);
+    const space = { marginTop: pt, marginBottom: pb };
+    const putSpace = (k: "pt" | "pb", v: number) => setGalleryFrame(g)({ ...fr, pt, pb, g: undefined, [k]: v });
+    const spaceSlider = (k: "pt" | "pb", v: number) => (
+      <label
+        key={k}
+        title={k === "pt" ? "Space above this text" : "Space under this text"}
+        className="flex items-center gap-1 px-1 text-ink/70"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {k === "pt" ? "↑" : "↓"}
+        <input
+          type="range"
+          min={0}
+          max={160}
+          step={2}
+          value={v}
+          onChange={(e) => putSpace(k, Number(e.target.value))}
+          className="w-16 accent-[var(--accent)]"
+        />
+        <span className="w-9 tabular-nums">{v}px</span>
+      </label>
+    );
     return (
       <div
         key={g}
@@ -280,28 +304,8 @@ export function CaseStudyView({ slug }: { slug: string }) {
           weight={false}
           extra={
             <>
-              {!free && (
-                <label
-                  title="Space between this text and the image"
-                  className="flex items-center gap-1.5 px-1 text-ink/70"
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
-                  ↕
-                  <input
-                    type="range"
-                    min={0}
-                    max={96}
-                    step={2}
-                    value={fr.g ?? CAPTION_GAP}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      setGalleryFrame(g)({ ...fr, g: v === CAPTION_GAP ? undefined : v });
-                    }}
-                    className="w-20 accent-[var(--accent)]"
-                  />
-                  <span className="w-9 tabular-nums">{fr.g ?? CAPTION_GAP}px</span>
-                </label>
-              )}
+              {spaceSlider("pt", pt)}
+              {spaceSlider("pb", pb)}
               {moveHandle(g, g, `${lookBtn} cursor-grab touch-none active:cursor-grabbing`)}
               {!free && (
                 <button

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Instrument_Serif } from "next/font/google";
+import { Instrument_Sans, Inter, Instrument_Serif } from "next/font/google";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { ContentProvider } from "@/components/edit/ContentProvider";
@@ -9,6 +9,8 @@ import { htmlLang, UI } from "@/lib/i18n";
 import { getLang } from "@/lib/lang-server";
 import "./globals.css";
 
+// Body text font; Inter stays available in the text toolbar.
+const instrumentSans = Instrument_Sans({ variable: "--font-instrument-sans", subsets: ["latin", "latin-ext"] });
 const inter = Inter({ variable: "--font-inter", subsets: ["latin", "vietnamese"] });
 const instrumentSerif = Instrument_Serif({
   variable: "--font-instrument-serif",
@@ -29,7 +31,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const [content, lang] = await Promise.all([getContent(), getLang()]);
   return (
     <html lang={htmlLang(lang)}>
-      <body className={`${inter.variable} ${instrumentSerif.variable} flex min-h-svh flex-col antialiased`}>
+      <body className={`${inter.variable} ${instrumentSerif.variable} ${instrumentSans.variable} flex min-h-svh flex-col antialiased`}>
         <ContentProvider initial={content} initialLang={lang}>
           <Header />
           <main className="flex-1">{children}</main>

@@ -2,6 +2,7 @@
 
 import type { TextLook } from "@/content/types";
 import { useContent } from "./ContentProvider";
+import { resizeSelection } from "./RichText";
 
 const NAMED: Record<string, string> = { ink: "var(--ink)", gray: "var(--gray)", accent: "var(--accent)" };
 const WEIGHTS: [number, string][] = [
@@ -19,6 +20,7 @@ export function lookStyle(look?: TextLook): React.CSSProperties | undefined {
     ...(look.s != null && { ["--s" as string]: look.s }),
     ...(look.w != null && { fontWeight: look.w }),
     ...(look.c && { color: NAMED[look.c] ?? look.c }),
+    ...(look.al === "c" && { textAlign: "center" as const, marginInline: "auto" }),
     // Same widths as the image frames: half = one gallery image (minus half the gap), full = the big image.
     // Phones always use the full width. The element's class applies --tw from the sm breakpoint up.
     ...(look.fw && {
@@ -65,6 +67,8 @@ export function LookTools({
     onChange(Object.keys(next).length ? next : undefined);
   };
   const size = (d: number) => {
+    // Marked text inside the box: only that text changes size.
+    if (resizeSelection(d * 2)) return;
     const v = Math.round(Math.min(2.5, Math.max(0.5, s + d)) * 100) / 100;
     put({ s: v === 1 ? undefined : v });
   };
@@ -74,11 +78,11 @@ export function LookTools({
     <div className="group/look relative">
       <div className="absolute bottom-full left-0 z-30 hidden pb-2 group-focus-within/look:block group-hover/look:block">
         <div className="flex items-center gap-1 whitespace-nowrap rounded-xl bg-paper p-1 font-sans text-xs font-normal normal-case tracking-normal text-ink shadow-lg ring-1 ring-ink/10">
-          <button type="button" title="Smaller" className={btn} onMouseDown={keep} onClick={() => size(-0.05)}>
+          <button type="button" title="Smaller (only the marked text, if any is marked)" className={btn} onMouseDown={keep} onClick={() => size(-0.05)}>
             A−
           </button>
           <span className="w-10 text-center tabular-nums text-ink/60">{Math.round(s * 100)}%</span>
-          <button type="button" title="Bigger" className={btn} onMouseDown={keep} onClick={() => size(0.05)}>
+          <button type="button" title="Bigger (only the marked text, if any is marked)" className={btn} onMouseDown={keep} onClick={() => size(0.05)}>
             A+
           </button>
           {weight && <span className="mx-1 h-5 w-px bg-ink/15" />}
@@ -139,6 +143,16 @@ export function LookTools({
               </button>
             ))}
           </div>}
+          <span className="mx-1 h-5 w-px bg-ink/15" />
+          <button
+            type="button"
+            title={look?.al === "c" ? "Align the text to the left" : "Center the text"}
+            className={`${btn} ${look?.al === "c" ? "bg-ink text-paper" : ""}`}
+            onMouseDown={keep}
+            onClick={() => put({ al: look?.al === "c" ? undefined : "c" })}
+          >
+            ≡ Center
+          </button>
           <span className="mx-1 h-5 w-px bg-ink/15" />
           <button type="button" title="Reset" className={btn} onMouseDown={keep} onClick={() => onChange(undefined)}>
             ↺

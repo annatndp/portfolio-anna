@@ -17,7 +17,7 @@
   --color-paper: var(--paper);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
-  --font-sans: var(--font-body, var(--font-inter));
+  --font-sans: var(--font-instrument-sans);
   --font-serif: var(--font-instrument-serif);
 }
 
@@ -28,7 +28,7 @@ html {
 body {
   background: var(--paper);
   color: var(--ink);
-  font-family: var(--font-body, var(--font-inter)), system-ui, sans-serif;
+  font-family: var(--font-instrument-sans), system-ui, sans-serif;
 }
 
 ::selection {
@@ -67,9 +67,9 @@ body {
 }
 
 /* Formatted text (RichT): fonts and sizes picked in the edit toolbar */
-.rich font[face="sans"] { font-family: var(--font-body, var(--font-inter)), system-ui, sans-serif; }
+.rich font[face="sans"] { font-family: var(--font-instrument-sans), system-ui, sans-serif; }
+.rich font[face="inter"] { font-family: var(--font-inter), system-ui, sans-serif; }
 .rich font[face="serif"] { font-family: var(--font-instrument-serif), serif; }
-.rich font[face="mono"] { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
 .rich font[size="1"] { font-size: 0.7em; }
 .rich font[size="2"] { font-size: 0.82em; }
 .rich font[size="3"] { font-size: 1em; }

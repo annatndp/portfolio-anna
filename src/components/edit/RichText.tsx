@@ -8,12 +8,12 @@ import { useContent } from "./ContentProvider";
 // (e.g. a year at the end of a line). Stored as a small subset of HTML.
 // Only these tags/attributes survive, so pasted or typed markup can't run scripts.
 const TAGS = new Set(["b", "strong", "i", "em", "u", "br", "div", "p", "font", "span", "ul", "ol", "li"]);
-const FACES = new Set(["sans", "serif", "mono"]);
+const FACES = new Set(["sans", "inter", "serif"]);
 const SIZES = new Set(["1", "2", "3", "4", "5"]);
 // Colors are stored as placeholder values; globals.css maps them to the site colors.
 const COLORS = { dark: "#000001", grey: "#000002" };
 const COLOR_SET = new Set(Object.values(COLORS));
-// span classes: "r" = pushed right, "w300"…"w700" = weight of the marked text.
+// span classes: "r" = pushed right, "w300"…"w700" = weight of the marked text, "z" = size of the marked text (style font-size in em).
 const WEIGHTS: [number, string][] = [
   [300, "Light"],
   [400, "Regular"],
@@ -35,6 +35,10 @@ export function sanitizeRich(html: string) {
       if (tag.startsWith("</")) return `</${t}>`;
       if (t === "span") {
         const cls = attrs.match(/class="([^"]*)"/)?.[1];
+        if (cls === "z") {
+          const em = Number(attrs.match(/font-size:\s*([\d.]+)em/)?.[1]);
+          return em >= 0.3 && em <= 4 ? `<span class="z" style="font-size: ${em}em">` : "<span>";
+        }
         return cls && SPAN_CLASSES.has(cls) ? `<span class="${cls}">` : "<span>";
       }
       if (t !== "font") return `<${t}>`;
@@ -50,6 +54,39 @@ export function sanitizeRich(html: string) {
 /** Plain text (older content) becomes HTML with line breaks; HTML is cleaned. */
 export function toRichHtml(value: string) {
   return /<[a-z][\s\S]*>/i.test(value) ? sanitizeRich(value) : escapeHtml(value).replace(/\n/g, "<br>");
+}
+
+/** Event a text box gets when something outside it (e.g. the A− / A+ buttons) changed its marked text: save it. */
+const SAVE_EVENT = "rich-save";
+
+/** Make only the marked text bigger / smaller (d = step in em). Returns false when no text is marked in an editor. */
+export function resizeSelection(d: number): boolean {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount) return false;
+  const range = sel.getRangeAt(0);
+  if (range.collapsed) return false;
+  const anc = range.commonAncestorContainer;
+  const el = anc instanceof Element ? anc : anc.parentElement;
+  const root = el?.closest<HTMLElement>(".rich[contenteditable]");
+  if (!el || !root) return false;
+  // Pressing again on the same marked text changes its size instead of adding another layer.
+  let span = el.closest<HTMLElement>("span.z");
+  if (!span || !root.contains(span) || span.textContent !== range.toString()) {
+    span = document.createElement("span");
+    span.className = "z";
+    span.style.fontSize = "1em";
+    span.appendChild(range.extractContents());
+    span.querySelectorAll("span.z").forEach((n) => n.replaceWith(...n.childNodes));
+    range.insertNode(span);
+  }
+  const now = parseFloat(span.style.fontSize) || 1;
+  span.style.fontSize = `${Math.round(Math.min(4, Math.max(0.3, now + d)) * 100) / 100}em`;
+  const again = document.createRange();
+  again.selectNodeContents(span);
+  sel.removeAllRanges();
+  sel.addRange(again);
+  root.dispatchEvent(new Event(SAVE_EVENT));
+  return true;
 }
 
 /** Spacing for one text block, saved next to it as `<path>Style` (same in both languages). */
@@ -113,6 +150,15 @@ export function RichT({
   /** HTML the editor itself just saved: the box already shows it, so it isn't redrawn (which would lose the selection). */
   const shown = useRef<string | null>(null);
 
+  const saveRef = useRef<() => void>(() => {});
+  useLayoutEffect(() => {
+    const box = ref.current;
+    if (!editing || !box) return;
+    const onSave = () => saveRef.current();
+    box.addEventListener(SAVE_EVENT, onSave);
+    return () => box.removeEventListener(SAVE_EVENT, onSave);
+  }, [editing]);
+
   useLayoutEffect(() => {
     if (!editing) shown.current = null; // the box is gone; draw it again when it comes back
     if (!editing || !ref.current || html === shown.current) return;
@@ -131,6 +177,7 @@ export function RichT({
     shown.current = toRichHtml(next);
     setText(path, next);
   };
+  saveRef.current = save;
   // Toolbar buttons keep the text selection (mousedown is cancelled), apply the command, then save.
   const cmd = (name: string, arg?: string) => (e: React.MouseEvent) => {
     e.preventDefault();
@@ -233,9 +280,9 @@ export function RichT({
           )}
         </div>
         <span className="mx-1 h-5 w-px bg-ink/15" />
-        <button type="button" title="Sans font" className={btn} onMouseDown={cmd("fontName", "sans")}>Sans</button>
+        <button type="button" title="Instrument Sans (the normal text font)" className={btn} onMouseDown={cmd("fontName", "sans")}>Sans</button>
+        <button type="button" title="Inter font" className={btn} style={{ fontFamily: "var(--font-inter)" }} onMouseDown={cmd("fontName", "inter")}>Inter</button>
         <button type="button" title="Serif font" className={`${btn} font-serif italic`} onMouseDown={cmd("fontName", "serif")}>Serif</button>
-        <button type="button" title="Mono font" className={`${btn} font-mono`} onMouseDown={cmd("fontName", "mono")}>Mono</button>
         <span className="mx-1 h-5 w-px bg-ink/15" />
         <button type="button" title="Extra small" className={`${btn} text-[10px]`} onMouseDown={cmd("fontSize", "1")}>XS</button>
         <button type="button" title="Small" className={`${btn} text-xs`} onMouseDown={cmd("fontSize", "2")}>S</button>

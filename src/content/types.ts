@@ -31,7 +31,7 @@ export type Project = {
 /** w = width in % of the row (20–100), r = height ÷ width, m = same height as the image beside it (r only on phones), c = corner radius in px, f = false shows the whole image inside the frame (default: fill the frame, edges may crop).
  * t = this gallery item is a text block (the gallery entry holds the text, l its size / weight / color).
  * a = the text sticks to an image: 1 = above the image right after it, -1 = under the image right before it.
- * g = space in px between a stuck text and its image, sp = line height / letter spacing / space between lines of a text. */
+ * g = space in px between a stuck text and its image (older; pt / pb replace it), pt / pb = space in px above / under a text, sp = line height / letter spacing / space between lines of a text. */
 export type FrameSize = {
   w?: number;
   r?: number;
@@ -42,10 +42,12 @@ export type FrameSize = {
   l?: TextLook;
   a?: 1 | -1;
   g?: number;
+  pt?: number;
+  pb?: number;
   sp?: { lh?: number; ls?: number; gap?: number };
 };
-/** s = size multiplier, w = font weight, c = "ink" | "gray" | "accent" | hex color, fw = text box as wide as a half / full image. */
-export type TextLook = { s?: number; w?: number; c?: string; fw?: "half" | "full" };
+/** s = size multiplier, w = font weight, c = "ink" | "gray" | "accent" | hex color, fw = text box as wide as a half / full image, al = "c" centers the text. */
+export type TextLook = { s?: number; w?: number; c?: string; fw?: "half" | "full"; al?: "c" };
 
 export type Content = {
   site: {
