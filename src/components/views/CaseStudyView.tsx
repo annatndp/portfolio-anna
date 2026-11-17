@@ -58,6 +58,18 @@ export function CaseStudyView({ slug }: { slug: string }) {
       p.galleryFrames = frames;
     });
 
+  /** Spacing of text g (remembered for new texts), or of every text in the project (g = null). */
+  const setTextSpacing = (g: number | null, sp: FrameSize["sp"]) =>
+    update((d) => {
+      const p = d.projects[i];
+      const frames = framesOf(p);
+      frames.forEach((fr, n) => {
+        if (fr?.t && (g == null || n === g)) frames[n] = { ...fr, sp };
+      });
+      p.galleryFrames = frames;
+      p.textSp = sp;
+    });
+
   const gapX = project.gapX ?? DEFAULT_GAP;
   const gapY = project.gapY ?? DEFAULT_GAP;
 
@@ -135,7 +147,7 @@ export function CaseStudyView({ slug }: { slug: string }) {
       const frames = framesOf(p);
       for (let n = 0; n < columns; n++) {
         p.gallery.push("");
-        frames.push(columns === 1 ? { t: true, w: 100 } : { t: true });
+        frames.push({ t: true, ...(columns === 1 && { w: 100 }), ...(p.textSp && { sp: p.textSp }) });
       }
       p.galleryFrames = frames;
     });
@@ -147,7 +159,7 @@ export function CaseStudyView({ slug }: { slug: string }) {
       const frames = framesOf(p);
       const at = side === 1 ? u.s : u.e + 1;
       p.gallery.splice(at, 0, "");
-      frames.splice(at, 0, { t: true, a: side });
+      frames.splice(at, 0, { t: true, a: side, ...(p.textSp && { sp: p.textSp }) });
       p.galleryFrames = frames;
       remapTranslations(d, listPath, (n) => (n >= at ? n + 1 : n));
     });
@@ -340,7 +352,8 @@ export function CaseStudyView({ slug }: { slug: string }) {
             floating
             style={lookStyle(fr.l)}
             textStyle={fr.sp}
-            onTextStyle={(sp) => setGalleryFrame(g)({ ...fr, sp })}
+            onTextStyle={(sp) => setTextSpacing(g, sp)}
+            onTextStyleAll={() => setTextSpacing(null, fr.sp)}
             className={
               free
                 ? "block min-h-[1.5em] text-[length:calc(var(--s,1)*1.125rem)] leading-relaxed text-gray sm:text-[length:calc(var(--s,1)*1.25rem)]"

@@ -2,7 +2,8 @@
 
 import type { TextLook } from "@/content/types";
 import { useContent } from "./ContentProvider";
-import { resizeSelection } from "./RichText";
+import { useEffect, useRef, useState } from "react";
+import { resizeSelection, selectionSize } from "./RichText";
 
 const NAMED: Record<string, string> = { ink: "var(--ink)", gray: "var(--gray)", accent: "var(--accent)" };
 const WEIGHTS: [number, string][] = [
@@ -58,6 +59,19 @@ export function LookTools({
   children: React.ReactNode;
 }) {
   const { editing } = useContent();
+  const box = useRef<HTMLDivElement>(null);
+  /** Size of the marked text inside this block (null = nothing marked here, the % shows the whole block). */
+  const [marked, setMarked] = useState<number | null>(null);
+  useEffect(() => {
+    if (!editing) return;
+    const onSel = () => {
+      const sel = window.getSelection();
+      const inside = !!sel?.rangeCount && !!box.current?.contains(sel.getRangeAt(0).commonAncestorContainer);
+      setMarked(inside ? selectionSize() : null);
+    };
+    document.addEventListener("selectionchange", onSel);
+    return () => document.removeEventListener("selectionchange", onSel);
+  }, [editing]);
   if (!editing) return <>{children}</>;
 
   const s = look?.s ?? 1;
@@ -68,20 +82,29 @@ export function LookTools({
   };
   const size = (d: number) => {
     // Marked text inside the box: only that text changes size.
-    if (resizeSelection(d * 2)) return;
+    const part = resizeSelection(d * 2);
+    if (part != null) {
+      setMarked(part);
+      return;
+    }
     const v = Math.round(Math.min(2.5, Math.max(0.5, s + d)) * 100) / 100;
     put({ s: v === 1 ? undefined : v });
   };
   const custom = look?.c && !NAMED[look.c] ? look.c : "#000000";
 
   return (
-    <div className="group/look relative">
+    <div ref={box} className="group/look relative">
       <div className="absolute bottom-full left-0 z-30 hidden pb-2 group-focus-within/look:block group-hover/look:block">
         <div className="flex items-center gap-1 whitespace-nowrap rounded-xl bg-paper p-1 font-sans text-xs font-normal normal-case tracking-normal text-ink shadow-lg ring-1 ring-ink/10">
           <button type="button" title="Smaller (only the marked text, if any is marked)" className={btn} onMouseDown={keep} onClick={() => size(-0.05)}>
             A−
           </button>
-          <span className="w-10 text-center tabular-nums text-ink/60">{Math.round(s * 100)}%</span>
+          <span
+            title={marked != null ? "Size of the marked text" : "Size of the whole text"}
+            className={`w-10 text-center tabular-nums ${marked != null ? "text-accent" : "text-ink/60"}`}
+          >
+            {Math.round((marked ?? s) * 100)}%
+          </span>
           <button type="button" title="Bigger (only the marked text, if any is marked)" className={btn} onMouseDown={keep} onClick={() => size(0.05)}>
             A+
           </button>

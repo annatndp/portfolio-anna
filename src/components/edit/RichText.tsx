@@ -38,7 +38,7 @@ export function sanitizeRich(html: string) {
         const cls = attrs.match(/class="([^"]*)"/)?.[1];
         if (cls === "z") {
           const em = Number(attrs.match(/font-size:\s*([\d.]+)em/)?.[1]);
-          return em >= 0.3 && em <= 4 ? `<span class="z" style="font-size: ${em}em">` : "<span>";
+          return em >= 0.3 && em <= 4 ? `<span class="z" style="font-size: ${em}em; --tz: ${em}">` : "<span>";
         }
         return cls && SPAN_CLASSES.has(cls) ? `<span class="${cls}">` : "<span>";
       }
@@ -60,16 +60,17 @@ export function toRichHtml(value: string) {
 /** Event a text box gets when something outside it (e.g. the A− / A+ buttons) changed its marked text: save it. */
 const SAVE_EVENT = "rich-save";
 
-/** Make only the marked text bigger / smaller (d = step in em). Returns false when no text is marked in an editor. */
-export function resizeSelection(d: number): boolean {
+/** Make only the marked text bigger / smaller (d = step in em). Returns its new size (1 = normal),
+ * or null when no text is marked in an editor. */
+export function resizeSelection(d: number): number | null {
   const sel = window.getSelection();
-  if (!sel || !sel.rangeCount) return false;
+  if (!sel || !sel.rangeCount) return null;
   const range = sel.getRangeAt(0);
-  if (range.collapsed) return false;
+  if (range.collapsed) return null;
   const anc = range.commonAncestorContainer;
   const el = anc instanceof Element ? anc : anc.parentElement;
   const root = el?.closest<HTMLElement>(".rich[contenteditable]");
-  if (!el || !root) return false;
+  if (!el || !root) return null;
   // Pressing again on the same marked text changes its size instead of adding another layer.
   let span = el.closest<HTMLElement>("span.z");
   if (!span || !root.contains(span) || span.textContent !== range.toString()) {
@@ -81,13 +82,56 @@ export function resizeSelection(d: number): boolean {
     range.insertNode(span);
   }
   const now = parseFloat(span.style.fontSize) || 1;
-  span.style.fontSize = `${Math.round(Math.min(4, Math.max(0.3, now + d)) * 100) / 100}em`;
+  const size = Math.round(Math.min(4, Math.max(0.3, now + d)) * 100) / 100;
+  span.style.fontSize = `${size}em`;
+  span.style.setProperty("--tz", String(size)); // Title text inside has a fixed size; this scales it too
   const again = document.createRange();
   again.selectNodeContents(span);
   sel.removeAllRanges();
   sel.addRange(again);
   root.dispatchEvent(new Event(SAVE_EVENT));
-  return true;
+  return size;
+}
+
+
+/**
+ * When lines are split or joined (Enter / Backspace), Chrome rewrites formatting as <span style="…"> with the
+ * computed font, size, weight… Those styles aren't kept when saving, so turn them back into the toolbar's own
+ * formatting first (Title / Serif / Inter, size of marked text, weight, italic). Works on a copy of the editor.
+ */
+function fromChromeStyles(root: HTMLElement, base: number) {
+  for (const el of [...root.querySelectorAll<HTMLElement>("span[style], font[style]")].reverse()) {
+    const st = el.style;
+    const family = st.fontFamily.toLowerCase().replace(/[\s_]+/g, " ");
+    const px = st.fontSize.endsWith("px") ? parseFloat(st.fontSize) : st.fontSize.endsWith("em") ? parseFloat(st.fontSize) * base : NaN;
+    const ratio = px / base;
+    const wrap: HTMLElement[] = [];
+    const serif = family.includes("instrument serif");
+    const title = serif && ratio >= 1.8;
+    if (title) wrap.push(Object.assign(document.createElement("font"), { face: "title" }));
+    else if (serif) wrap.push(Object.assign(document.createElement("font"), { face: "serif" }));
+    else if (/(^|[ '"])inter([ '"]|$)/.test(family)) wrap.push(Object.assign(document.createElement("font"), { face: "inter" }));
+    if (!title && ratio > 0 && Math.abs(ratio - 1) > 0.02) {
+      const z = document.createElement("span");
+      z.className = "z";
+      z.style.fontSize = `${Math.round(ratio * 100) / 100}em`;
+      wrap.push(z);
+    }
+    const w = parseInt(st.fontWeight, 10);
+    if (!title && w && w !== 400 && !el.closest("b, strong")) {
+      const span = document.createElement("span");
+      span.className = `w${Math.min(700, Math.max(300, Math.round(w / 100) * 100))}`;
+      wrap.push(span);
+    }
+    if (!title && st.fontStyle === "italic" && !el.closest("i, em")) wrap.push(document.createElement("i"));
+    // Keep the element's own attributes that do survive (e.g. <font face="sans">), just without the style.
+    el.removeAttribute("style");
+    if (!wrap.length) continue;
+    let inner = wrap[0];
+    for (const x of wrap.slice(1)) inner = inner.appendChild(x);
+    inner.append(...el.childNodes);
+    el.append(wrap[0]);
+  }
 }
 
 /** Spacing for one text block, saved next to it as `<path>Style` (same in both languages). */
@@ -127,6 +171,7 @@ export function RichT({
   style: extraStyle,
   textStyle,
   onTextStyle,
+  onTextStyleAll,
 }: {
   path: string;
   className?: string;
@@ -138,6 +183,8 @@ export function RichT({
   /** Spacing stored somewhere else than `<path>Style` (needed when the text lives in a list). */
   textStyle?: TextStyle;
   onTextStyle?: (next: TextStyle | undefined) => void;
+  /** Give every text of the same kind (e.g. all texts in the project) this text's spacing. */
+  onTextStyleAll?: () => void;
 }) {
   const { editing, text, setText, content, set, lang, update } = useContent();
   const ref = useRef<HTMLDivElement>(null);
@@ -175,7 +222,10 @@ export function RichT({
   const setStyle = (k: keyof TextStyle, v: number) => putStyle({ ...st, [k]: v });
 
   const save = () => {
-    const next = sanitizeRich(ref.current?.innerHTML ?? "").replace(/(<br>|\s)+$/g, "");
+    if (!ref.current) return;
+    const copy = ref.current.cloneNode(true) as HTMLElement;
+    fromChromeStyles(copy, parseFloat(getComputedStyle(ref.current).fontSize) || 16);
+    const next = sanitizeRich(copy.innerHTML).replace(/(<br>|\s)+$/g, "");
     if (next === html) return;
     shown.current = toRichHtml(next);
     setText(path, next);
@@ -347,9 +397,23 @@ export function RichT({
             <Slider label="Line height" value={cur.lh} min={1} max={2.4} step={0.05} onChange={(v) => setStyle("lh", v)} />
             <Slider label="Letter spacing" value={cur.ls} min={-0.05} max={0.2} step={0.005} unit="em" onChange={(v) => setStyle("ls", v)} />
             <Slider label="Space between lines" value={cur.gap} min={0} max={1.5} step={0.05} unit="em" onChange={(v) => setStyle("gap", v)} />
-            <button type="button" className="self-start text-xs text-gray underline hover:text-ink" onClick={() => putStyle(undefined)}>
-              Reset spacing
-            </button>
+            <div className="flex flex-wrap items-center gap-4">
+              <button type="button" className="text-xs text-gray underline hover:text-ink" onClick={() => putStyle(undefined)}>
+                Reset spacing
+              </button>
+              {onTextStyleAll && (
+                <button
+                  type="button"
+                  title="Give every text in this project the same line height, letter spacing and space between lines"
+                  className="rounded-full bg-ink px-3 py-1 text-xs text-paper hover:bg-accent"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={onTextStyleAll}
+                >
+                  Use for all texts in this project
+                </button>
+              )}
+            </div>
+            {onTextStyleAll && <p className="text-xs text-gray">New texts in this project start with the spacing you set last.</p>}
           </div>
         )}
       </div>
@@ -366,4 +430,16 @@ export function RichT({
       />
     </div>
   );
+}
+
+/** Size (1 = normal) of the marked text when it is exactly one resized part, 1 when other text is marked, null when nothing is marked. */
+export function selectionSize(): number | null {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount || sel.getRangeAt(0).collapsed) return null;
+  const range = sel.getRangeAt(0);
+  const anc = range.commonAncestorContainer;
+  const el = anc instanceof Element ? anc : anc.parentElement;
+  if (!el?.closest(".rich[contenteditable]")) return null;
+  const span = el.closest<HTMLElement>("span.z");
+  return span && span.textContent === range.toString() ? parseFloat(span.style.fontSize) || 1 : 1;
 }

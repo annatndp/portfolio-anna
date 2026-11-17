@@ -69,9 +69,10 @@ body {
 /* Formatted text (RichT): fonts and sizes picked in the edit toolbar */
 .rich font[face="sans"] { font-family: var(--font-instrument-sans), system-ui, sans-serif; }
 .rich font[face="inter"] { font-family: var(--font-inter), system-ui, sans-serif; }
-/* "Title" = the same big italic as the card titles (text-5xl, 64px on large screens), whatever size the text around it has. */
-.rich font[face="title"] { font-family: var(--font-instrument-serif), serif; font-style: italic; font-weight: 400; letter-spacing: 0; font-size: 3rem !important; line-height: 1.05 !important; }
-@media (min-width: 64rem) { .rich font[face="title"] { font-size: 64px !important; } }
+/* "Title" = the same big italic as the card titles (text-5xl, 64px on large screens), whatever size the text around it has.
+   It still follows A− / A+: --s = size of the whole text box, --tz = size of marked text (set by span.z). */
+.rich font[face="title"] { font-family: var(--font-instrument-serif), serif; font-style: italic; font-weight: 400; letter-spacing: 0; font-size: calc(3rem * var(--s, 1) * var(--tz, 1)) !important; line-height: 1.05 !important; }
+@media (min-width: 64rem) { .rich font[face="title"] { font-size: calc(64px * var(--s, 1) * var(--tz, 1)) !important; } }
 .rich font[face="title"] font[size] { font-size: inherit; }
 .rich font[face="serif"] { font-family: var(--font-instrument-serif), serif; }
 .rich font[size="1"] { font-size: 0.7em; }

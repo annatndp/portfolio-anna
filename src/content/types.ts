@@ -21,6 +21,8 @@ export type Project = {
   coverFrame?: FrameSize;
   /** Frame size per gallery image, same order as `gallery`. */
   galleryFrames?: (FrameSize | null)[];
+  /** Spacing last set on a text in this project; new texts start with it. */
+  textSp?: FrameSize["sp"];
   /** Space between images in px: gapX between images in a row, gapY between rows (sliders in edit mode). */
   gapX?: number;
   gapY?: number;
