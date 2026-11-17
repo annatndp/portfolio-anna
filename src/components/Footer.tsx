@@ -14,7 +14,7 @@ export function Footer() {
   return (
     // One short row: © name on the left; social links + About / Contact on the right (stacked on phones).
     <footer className={`border-t-2 border-ink bg-accent-soft ${editing ? "pb-24" : ""}`}>
-      <div className="mx-auto flex max-w-[1800px] flex-col gap-3 px-5 py-6 sm:flex-row sm:items-center sm:justify-between sm:px-10 lg:px-16">
+      <div className="mx-auto flex max-w-[1800px] flex-col gap-3 px-5 py-12 sm:flex-row sm:py-16 sm:items-center sm:justify-between sm:px-10 lg:px-16">
         <span className="font-serif text-lg italic">
           © {new Date().getFullYear()} {site.fullName}
         </span>

@@ -1,8 +1,9 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState } from "react";
-import { getAt } from "@/lib/path";
+import { getAt, setAt } from "@/lib/path";
 import { useContent } from "./ContentProvider";
+import { linkFormat } from "./linkFormat";
 
 // Formatted text: bold, italic, 3 fonts + the big italic title style, 5 sizes, 2 colors, and "push to the right"
 // (e.g. a year at the end of a line). Stored as a small subset of HTML.
@@ -138,10 +139,12 @@ export function RichT({
   textStyle?: TextStyle;
   onTextStyle?: (next: TextStyle | undefined) => void;
 }) {
-  const { editing, text, setText, content, set } = useContent();
+  const { editing, text, setText, content, set, lang, update } = useContent();
   const ref = useRef<HTMLDivElement>(null);
   const [panel, setPanel] = useState(false);
   const [weightMenu, setWeightMenu] = useState(false);
+  /** The two languages have a different number of lines, so formatting isn't copied across. */
+  const [unlinked, setUnlinked] = useState(false);
   const value = text(path);
   const html = toRichHtml(value);
   const st = onTextStyle ? textStyle : (getAt(content, `${path}Style`) as TextStyle | undefined);
@@ -176,6 +179,21 @@ export function RichT({
     if (next === html) return;
     shown.current = toRichHtml(next);
     setText(path, next);
+    // Same formatting in the other language, line by line (only when it has its own version of the text).
+    const en = String(getAt(content, path) ?? "");
+    const no = content.no?.[path];
+    if (!no) return;
+    const other = lang === "no" ? en : no;
+    if (!/<[a-z][\s\S]*>/i.test(next) && !/<[a-z][\s\S]*>/i.test(other)) return;
+    const linked = linkFormat(next, toRichHtml(other));
+    setUnlinked(linked == null);
+    if (linked == null) return;
+    const clean = sanitizeRich(linked);
+    if (clean === toRichHtml(other)) return;
+    update((d) => {
+      if (lang === "no") setAt(d, path, clean);
+      else d.no = { ...d.no, [path]: clean };
+    });
   };
   saveRef.current = save;
   // Toolbar buttons keep the text selection (mousedown is cancelled), apply the command, then save.
@@ -318,6 +336,12 @@ export function RichT({
         </button>
         <span className="mx-1 h-5 w-px bg-ink/15" />
         <button type="button" title="Clear formatting" className={btn} onMouseDown={cmd("removeFormat")}>Clear</button>
+        {unlinked && (
+          <p className="w-full px-2 pb-1 text-xs text-accent">
+            {lang === "no" ? "Norsk" : "English"} and {lang === "no" ? "English" : "Norsk"} have a different number of lines here, so
+            the formatting isn&apos;t copied to the other language. Give both the same lines (Enter / Shift+Enter) to link them.
+          </p>
+        )}
         {panel && (
           <div className="mt-1 flex w-full flex-col gap-2 rounded-lg bg-ink/[0.04] p-3">
             <Slider label="Line height" value={cur.lh} min={1} max={2.4} step={0.05} onChange={(v) => setStyle("lh", v)} />
