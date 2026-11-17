@@ -83,6 +83,8 @@ export type Content = {
       }[];
       /** Max width of the 2 × 2 card grid in px (drag handle in edit mode). */
       cardsWidth: number;
+      /** The Info card (email + social): spans both columns, and its text size (1 = normal). */
+      info?: { wide?: boolean; scale?: number };
       punchline: [string, string];
     };
   };

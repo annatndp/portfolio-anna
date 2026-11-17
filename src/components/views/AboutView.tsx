@@ -190,11 +190,12 @@ function MiniFolder({ i, image, editing }: { i: number; image: string; editing: 
 }
 
 /** Edit mode: card buttons in the title bar — move, delete, width and text size. */
-function CardTools({ i, wide, scale }: { i: number; wide: boolean; scale: number }) {
+function CardTools({ i, wide, scale }: { i: number | "info"; wide: boolean; scale: number }) {
   const { set } = useContent();
+  const base = i === "info" ? "site.about.info" : `site.about.cards.${i}`;
   const btn =
     "flex h-8 min-w-8 items-center justify-center rounded-full bg-paper px-2 text-xs font-medium text-ink shadow ring-1 ring-ink/10 hover:bg-ink hover:text-paper";
-  const zoom = (d: number) => set(`site.about.cards.${i}.scale`, Math.round(Math.min(1.5, Math.max(0.6, scale + d)) * 100) / 100);
+  const zoom = (d: number) => set(`${base}.scale`, Math.round(Math.min(1.5, Math.max(0.6, scale + d)) * 100) / 100);
   return (
     <div className="relative ml-auto flex shrink-0 items-center gap-1.5">
       <button type="button" title="Smaller text" className={btn} onClick={() => zoom(-0.05)}>A−</button>
@@ -204,26 +205,27 @@ function CardTools({ i, wide, scale }: { i: number; wide: boolean; scale: number
         type="button"
         title={wide ? "Make the card half width" : "Make the card full width"}
         className={`${btn} hidden sm:flex`}
-        onClick={() => set(`site.about.cards.${i}.wide`, !wide)}
+        onClick={() => set(`${base}.wide`, !wide)}
       >
         {wide ? "◧ Half" : "▭ Full"}
       </button>
-      <ItemControls listPath="site.about.cards" index={i} label="card" className="!static" />
+      {i !== "info" && <ItemControls listPath="site.about.cards" index={i} label="card" className="!static" />}
     </div>
   );
 }
 
 /** Last card: email + social links (the same links as in the footer). */
-function InfoCard({ index }: { index: number }) {
+function InfoCard({ index, wide }: { index: number; wide: boolean }) {
   const { content, editing, set, update, ui } = useContent();
   const { site } = content;
+  const scale = site.about.info?.scale ?? 1;
   const color = PASTEL[index % PASTEL.length];
   const link = "underline decoration-1 underline-offset-4 hover:text-accent";
   return (
     <article
       id="contact"
       data-card
-      className="group/card relative origin-center scroll-mt-24 rounded-3xl border border-ink/10 bg-paper shadow-xl hover:z-10 sm:col-span-2"
+      className={`group/card relative origin-center scroll-mt-24 rounded-3xl border border-ink/10 bg-paper shadow-xl hover:z-10 ${wide ? "sm:col-span-2" : ""}`}
       style={{ boxShadow: `0 12px 36px ${color}` }}
     >
       <div className="transition-transform duration-300 group-hover/card:-translate-y-2">
@@ -232,12 +234,13 @@ function InfoCard({ index }: { index: number }) {
           <span className="h-3 w-3 rounded-full bg-ink/20" />
           <span className="h-3 w-3 rounded-full bg-ink/20" />
           <span className="ml-2 truncate font-mono text-sm text-ink/60 lg:text-base">{ui("info").toLowerCase()}.txt</span>
+          {editing && <CardTools i="info" wide={wide} scale={scale} />}
         </div>
-        <div className="p-8 lg:p-10">
+        <div className="p-8 lg:p-10" style={scale !== 1 ? { zoom: scale } : undefined}>
           <h3 className="font-serif text-5xl italic lg:text-[64px] lg:leading-[1.05]">{ui("info")}</h3>
-          <dl className="mt-6 grid gap-6 text-lg text-ink/75 sm:grid-cols-[auto_1fr] sm:gap-x-12 lg:text-[21px]">
+          <dl className={`mt-6 grid gap-6 text-lg text-ink/75 lg:text-[21px] ${wide ? "sm:grid-cols-[auto_1fr] sm:gap-x-12" : ""}`}>
             <dt className="font-mono text-sm uppercase tracking-widest text-gray sm:pt-1.5">{ui("formEmail")}</dt>
-            <dd className="-mt-4 sm:mt-0">
+            <dd className={`-mt-4 ${wide ? "sm:mt-0" : ""}`}>
               {editing ? (
                 <T path="site.email" placeholder="you@email.com" />
               ) : (
@@ -247,7 +250,7 @@ function InfoCard({ index }: { index: number }) {
               )}
             </dd>
             <dt className="font-mono text-sm uppercase tracking-widest text-gray sm:pt-1.5">Social</dt>
-            <dd className="-mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 sm:mt-0">
+            <dd className={`-mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 ${wide ? "sm:mt-0" : ""}`}>
               {site.socials.map((s, i) =>
                 editing ? (
                   <span key={i} className="relative flex items-center gap-2 pr-24">
@@ -321,6 +324,9 @@ export function AboutView() {
   const { content, editing, update, ui, text } = useContent();
   const about = content.site.about;
   const fanRef = useCardsFromFolder();
+  // Half-width cards fill the grid two by two; the Info card takes the free half after them, or the whole row.
+  const halves = about.cards.filter((c) => !c.wide).length;
+  const infoWide = about.info?.wide ?? halves % 2 === 0;
 
   return (
     <div className="relative overflow-x-clip" style={DOTS}>
@@ -459,12 +465,12 @@ export function AboutView() {
           </div>
 
           <div className="relative z-[1] mt-12 grid gap-6 sm:grid-cols-2 lg:gap-9">
-            {about.cards.map((c, i, all) => (
+            {about.cards.map((c, i) => (
               <article
                 key={i}
                 data-card
                 className={`group/card relative origin-center rounded-3xl ${
-                  (c.wide ?? (i === all.length - 1 && all.length % 2 === 1)) ? "sm:col-span-2" : ""
+                  (c.wide ?? false) ? "sm:col-span-2" : ""
                 } border border-ink/10 bg-paper shadow-xl hover:z-10`}
                 style={{ boxShadow: `0 12px 36px ${PASTEL[i % PASTEL.length]}` }}
               >
@@ -479,7 +485,7 @@ export function AboutView() {
                     <span className="ml-2 truncate font-mono text-sm text-ink/60 lg:text-base">
                       {(text(`site.about.cards.${i}.title`) || "untitled").toLowerCase().replace(/\s+/g, "_")}.txt
                     </span>
-                    {editing && <CardTools i={i} wide={c.wide ?? (i === all.length - 1 && all.length % 2 === 1)} scale={c.scale ?? 1} />}
+                    {editing && <CardTools i={i} wide={c.wide ?? false} scale={c.scale ?? 1} />}
                   </div>
                   <div className="p-8 lg:p-10" style={c.scale && c.scale !== 1 ? { zoom: c.scale } : undefined}>
                     <T path={`site.about.cards.${i}.title`} as="h3" className="block font-serif text-5xl italic lg:text-[64px] lg:leading-[1.05]" placeholder="Title" />
@@ -494,6 +500,7 @@ export function AboutView() {
                 </div>
               </article>
             ))}
+            <InfoCard index={about.cards.length} wide={infoWide} />
             {editing && (
               <AddButton
                 className="sm:col-span-2"
@@ -502,7 +509,6 @@ export function AboutView() {
                 Add card
               </AddButton>
             )}
-            <InfoCard index={about.cards.length} />
           </div>
 
           {editing && <WidthHandle />}

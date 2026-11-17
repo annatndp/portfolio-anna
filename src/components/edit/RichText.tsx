@@ -4,11 +4,11 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { getAt } from "@/lib/path";
 import { useContent } from "./ContentProvider";
 
-// Formatted text: bold, italic, 3 fonts, 5 sizes, 2 colors, and "push to the right"
+// Formatted text: bold, italic, 3 fonts + the big italic title style, 5 sizes, 2 colors, and "push to the right"
 // (e.g. a year at the end of a line). Stored as a small subset of HTML.
 // Only these tags/attributes survive, so pasted or typed markup can't run scripts.
 const TAGS = new Set(["b", "strong", "i", "em", "u", "br", "div", "p", "font", "span", "ul", "ol", "li"]);
-const FACES = new Set(["sans", "inter", "serif"]);
+const FACES = new Set(["sans", "inter", "serif", "title"]);
 const SIZES = new Set(["1", "2", "3", "4", "5"]);
 // Colors are stored as placeholder values; globals.css maps them to the site colors.
 const COLORS = { dark: "#000001", grey: "#000002" };
@@ -283,6 +283,7 @@ export function RichT({
         <button type="button" title="Instrument Sans (the normal text font)" className={btn} onMouseDown={cmd("fontName", "sans")}>Sans</button>
         <button type="button" title="Inter font" className={btn} style={{ fontFamily: "var(--font-inter)" }} onMouseDown={cmd("fontName", "inter")}>Inter</button>
         <button type="button" title="Serif font" className={`${btn} font-serif italic`} onMouseDown={cmd("fontName", "serif")}>Serif</button>
+        <button type="button" title="Big italic title, like the card titles (Instrument Serif)" className={`${btn} font-serif text-lg italic`} onMouseDown={cmd("fontName", "title")}>Title</button>
         <span className="mx-1 h-5 w-px bg-ink/15" />
         <button type="button" title="Extra small" className={`${btn} text-[10px]`} onMouseDown={cmd("fontSize", "1")}>XS</button>
         <button type="button" title="Small" className={`${btn} text-xs`} onMouseDown={cmd("fontSize", "2")}>S</button>

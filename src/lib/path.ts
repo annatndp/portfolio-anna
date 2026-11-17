@@ -10,7 +10,8 @@ export function getAt(obj: Any, path: string): Any {
 export function setAt(obj: Any, path: string, value: unknown) {
   const keys = path.split(".");
   let o = obj;
-  for (const k of keys.slice(0, -1)) o = o[k];
+  // Missing objects on the way are created (e.g. a setting that was never set before).
+  for (const k of keys.slice(0, -1)) o = o[k] ??= {};
   o[keys[keys.length - 1]] = value;
 }
 
