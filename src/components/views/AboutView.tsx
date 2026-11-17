@@ -6,6 +6,7 @@ import { AddButton, EditableImage, ItemControls, T } from "@/components/edit/Edi
 import { useContent } from "@/components/edit/ContentProvider";
 import { ToolIcon } from "@/components/ToolIcon";
 import { RichT } from "@/components/edit/RichText";
+import { SocialLink, SocialLinkInput } from "@/components/edit/SocialLinkInput";
 
 // Same pastel palette as the hero cursors.
 const PASTEL = ["#c9d6ff", "#ffd1e1", "#e6f9a8", "#e3d4ff", "#ffe0c2", "#c8f0ee", "#fff3a8"];
@@ -216,9 +217,10 @@ function CardTools({ i, wide, scale }: { i: number | "info"; wide: boolean; scal
 
 /** Last card: email + social links (the same links as in the footer). */
 function InfoCard({ index, wide }: { index: number; wide: boolean }) {
-  const { content, editing, set, update, ui } = useContent();
+  const { content, editing, update, ui } = useContent();
   const { site } = content;
   const scale = site.about.info?.scale ?? 1;
+
   const color = PASTEL[index % PASTEL.length];
   const link = "underline decoration-1 underline-offset-4 hover:text-accent";
   return (
@@ -255,23 +257,13 @@ function InfoCard({ index, wide }: { index: number; wide: boolean }) {
                 editing ? (
                   <span key={i} className="relative flex items-center gap-2 pr-24">
                     <T path={`site.socials.${i}.label`} placeholder="Name" />
-                    <button
-                      type="button"
-                      title={s.href}
-                      onClick={() => {
-                        const href = prompt(`Link for ${s.label}:`, s.href);
-                        if (href !== null) set(`site.socials.${i}.href`, href.trim());
-                      }}
-                      className="rounded-full border border-ink/30 px-2 py-0.5 text-xs hover:bg-ink hover:text-paper"
-                    >
-                      link
-                    </button>
+                    <SocialLinkInput i={i} />
                     <ItemControls listPath="site.socials" index={i} label="link" className="right-0 top-1/2 -translate-y-1/2 scale-75" />
                   </span>
                 ) : (
-                  <a key={i} href={s.href} target="_blank" rel="noreferrer" className={link}>
+                  <SocialLink key={i} href={s.href} className={link}>
                     {s.label}
-                  </a>
+                  </SocialLink>
                 ),
               )}
               {editing && (
