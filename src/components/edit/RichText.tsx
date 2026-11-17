@@ -9,7 +9,7 @@ import { linkFormat } from "./linkFormat";
 // (e.g. a year at the end of a line). Stored as a small subset of HTML.
 // Only these tags/attributes survive, so pasted or typed markup can't run scripts.
 const TAGS = new Set(["b", "strong", "i", "em", "u", "br", "div", "p", "font", "span", "ul", "ol", "li"]);
-const FACES = new Set(["sans", "inter", "serif", "title"]);
+const FACES = new Set(["sans", "serif", "title"]);
 const SIZES = new Set(["1", "2", "3", "4", "5"]);
 // Colors are stored as placeholder values; globals.css maps them to the site colors.
 const COLORS = { dark: "#000001", grey: "#000002" };
@@ -97,7 +97,7 @@ export function resizeSelection(d: number): number | null {
 /**
  * When lines are split or joined (Enter / Backspace), Chrome rewrites formatting as <span style="…"> with the
  * computed font, size, weight… Those styles aren't kept when saving, so turn them back into the toolbar's own
- * formatting first (Title / Serif / Inter, size of marked text, weight, italic). Works on a copy of the editor.
+ * formatting first (Title / Serif, size of marked text, weight, italic). Works on a copy of the editor.
  */
 function fromChromeStyles(root: HTMLElement, base: number) {
   for (const el of [...root.querySelectorAll<HTMLElement>("span[style], font[style]")].reverse()) {
@@ -110,7 +110,6 @@ function fromChromeStyles(root: HTMLElement, base: number) {
     const title = serif && ratio >= 1.8;
     if (title) wrap.push(Object.assign(document.createElement("font"), { face: "title" }));
     else if (serif) wrap.push(Object.assign(document.createElement("font"), { face: "serif" }));
-    else if (/(^|[ '"])inter([ '"]|$)/.test(family)) wrap.push(Object.assign(document.createElement("font"), { face: "inter" }));
     if (!title && ratio > 0 && Math.abs(ratio - 1) > 0.02) {
       const z = document.createElement("span");
       z.className = "z";
@@ -172,6 +171,7 @@ export function RichT({
   textStyle,
   onTextStyle,
   onTextStyleAll,
+  linkLanguages = true,
 }: {
   path: string;
   className?: string;
@@ -183,6 +183,8 @@ export function RichT({
   /** Spacing stored somewhere else than `<path>Style` (needed when the text lives in a list). */
   textStyle?: TextStyle;
   onTextStyle?: (next: TextStyle | undefined) => void;
+  /** Copy line formatting to the other language when saving (off = each language keeps its own formatting). */
+  linkLanguages?: boolean;
   /** Give every text of the same kind (e.g. all texts in the project) this text's spacing. */
   onTextStyleAll?: () => void;
 }) {
@@ -232,7 +234,7 @@ export function RichT({
     // Same formatting in the other language, line by line (only when it has its own version of the text).
     const en = String(getAt(content, path) ?? "");
     const no = content.no?.[path];
-    if (!no) return;
+    if (!no || !linkLanguages) return;
     const other = lang === "no" ? en : no;
     if (!/<[a-z][\s\S]*>/i.test(next) && !/<[a-z][\s\S]*>/i.test(other)) return;
     const linked = linkFormat(next, toRichHtml(other));
@@ -349,7 +351,6 @@ export function RichT({
         </div>
         <span className="mx-1 h-5 w-px bg-ink/15" />
         <button type="button" title="Instrument Sans (the normal text font)" className={btn} onMouseDown={cmd("fontName", "sans")}>Sans</button>
-        <button type="button" title="Inter font" className={btn} style={{ fontFamily: "var(--font-inter)" }} onMouseDown={cmd("fontName", "inter")}>Inter</button>
         <button type="button" title="Serif font" className={`${btn} font-serif italic`} onMouseDown={cmd("fontName", "serif")}>Serif</button>
         <button type="button" title="Big italic title, like the card titles (Instrument Serif)" className={`${btn} font-serif text-lg italic`} onMouseDown={cmd("fontName", "title")}>Title</button>
         <span className="mx-1 h-5 w-px bg-ink/15" />
@@ -426,6 +427,12 @@ export function RichT({
         spellCheck
         data-placeholder={placeholder}
         onClick={(e) => e.preventDefault()}
+        // Paste only the words: they take the font, size and color of the place they're pasted into.
+        onPaste={(e) => {
+          e.preventDefault();
+          const plain = e.clipboardData.getData("text/plain").replace(/\r\n?/g, "\n");
+          if (plain) document.execCommand("insertText", false, plain);
+        }}
         onBlur={save}
       />
     </div>

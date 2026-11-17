@@ -484,6 +484,7 @@ export function AboutView() {
                     <div className="mt-6">
                       <RichT
                         path={`site.about.cards.${i}.body`}
+                        linkLanguages={false}
                         className="text-lg leading-relaxed text-ink/75 lg:text-[21px] lg:leading-relaxed"
                         placeholder="Write something"
                       />
