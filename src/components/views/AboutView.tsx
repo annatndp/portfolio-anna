@@ -108,12 +108,21 @@ function useCardsFromFolder() {
       if (reduce) return open !== true && apply(true, false);
       const folderTop = el.querySelector<HTMLElement>("[data-folder]")!.getBoundingClientRect().top;
       // Open as soon as the folder is on screen; close when it drops back to the bottom edge.
-      if (open === null) apply(folderTop < vh * 0.88, false); // first check: no animation, just pick a side
+      // First check (or after a resize): no animation, just pick a side.
+      if (open === null) apply(folderTop < vh * 0.88, false);
       else if (folderTop < vh * 0.85 && open !== true) apply(true, animate);
       else if (folderTop > vh * 0.92 && open !== false) apply(false, animate);
     };
 
-    check(false);
+    // On a tall screen the folder is already in view when the page loads. Start it closed so
+    // the cards still burst out, after a short beat (the hero intro runs first).
+    // If the page opens already scrolled past the folder, just show the cards open.
+    let intro: number | undefined;
+    const folderRect = el.querySelector<HTMLElement>("[data-folder]")!.getBoundingClientRect();
+    if (!reduce && folderRect.bottom > 0) {
+      apply(false, false);
+      intro = window.setTimeout(() => check(), 700);
+    } else check(false);
     const onScroll = () => check();
     const onResize = () => {
       open = null;
@@ -122,6 +131,7 @@ function useCardsFromFolder() {
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onResize);
     return () => {
+      window.clearTimeout(intro);
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onResize);
     };
