@@ -457,7 +457,7 @@ export function AboutView() {
 
       {/* ───────── Screen 2: cards jump out of a small zip folder as you scroll ───────── */}
       {/* Folder section: fills the screen and snaps into view, then the cards burst out. */}
-      <section className="relative px-5 pb-24 pt-10 sm:px-10">
+      <section className="relative px-5 pb-24 pt-10 sm:px-10 lg:pt-36">
         <div className="w-full">
         <div ref={fanRef} className="group/fold relative mx-auto w-full" style={{ maxWidth: about.cardsWidth || 1240 }}>
           {/* Small folder: back + tab behind the cards, frosted front in front of them */}
