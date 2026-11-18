@@ -13,7 +13,7 @@ export function HomeView() {
   return (
     <>
       <section className="relative flex min-h-svh flex-col items-center justify-center px-5 py-24 sm:px-10 lg:px-16">
-        <h1 className="relative z-10 mx-auto max-w-6xl text-center text-5xl font-semibold leading-[1.12] tracking-tight sm:text-7xl lg:text-8xl">
+        <h1 className="relative z-10 mx-auto max-w-6xl text-center text-[min(3rem,calc((100vw-40px)*0.137))] font-semibold leading-[1.12] tracking-tight sm:text-7xl lg:text-8xl">
           <T path="site.hi" fallback={ui("hi")} className="font-serif font-normal italic" placeholder="Hi, I'm" />{" "}
           <T path="site.name" className="font-serif font-normal italic" placeholder="Name" />
           <span className="font-serif font-normal italic">,</span>{" "}

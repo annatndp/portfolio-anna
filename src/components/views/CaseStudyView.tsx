@@ -21,7 +21,7 @@ const CAPTION_GAP = 12;
 const imgSizes = "(min-width: 1280px) 1280px, 100vw";
 
 export function CaseStudyView({ slug }: { slug: string }) {
-  const { content, editing, update, set, ui } = useContent();
+  const { content, editing, update, set, ui, text } = useContent();
   const router = useRouter();
   const galleryRef = useRef<HTMLDivElement>(null);
   /** Gallery items being dragged (s..e) and where they would land. */
@@ -40,6 +40,9 @@ export function CaseStudyView({ slug }: { slug: string }) {
   }
 
   const base = `projects.${i}`;
+  // After the last project it wraps around to the first.
+  const nextIndex = (i + 1) % content.projects.length;
+  const next = content.projects[nextIndex];
   const meta = (["category", "campaign", "year"] as const).filter((k) => editing || project[k]);
 
   const looks = project.looks ?? {};
@@ -574,6 +577,22 @@ export function CaseStudyView({ slug }: { slug: string }) {
           </div>
         )}
       </div>
+
+      {next && next !== project && (
+        <nav className="mt-24 border-t border-ink/15 pt-10 sm:mt-32">
+          <Link href={`/projects/${next.slug}`} className="group flex items-end justify-between gap-6">
+            <span className="min-w-0">
+              <span className="block text-xs font-semibold uppercase tracking-widest text-gray">{ui("nextProject")}</span>
+              <span className="mt-3 block truncate font-serif text-4xl italic transition-colors group-hover:text-accent sm:text-6xl">
+                {text(`projects.${nextIndex}.title`) || next.slug}
+              </span>
+            </span>
+            <span className="shrink-0 pb-2 text-3xl transition-transform group-hover:translate-x-2 sm:text-4xl" aria-hidden>
+              →
+            </span>
+          </Link>
+        </nav>
+      )}
     </article>
   );
 }

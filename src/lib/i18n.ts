@@ -5,7 +5,8 @@
 export type Lang = "en" | "no";
 export const LANG_COOKIE = "lang";
 export const htmlLang = (l: Lang) => (l === "no" ? "nb" : "en");
-export const parseLang = (v?: string | null): Lang => (v === "no" ? "no" : "en");
+/** Norwegian is the default; English only when the visitor picked it. */
+export const parseLang = (v?: string | null): Lang => (v === "en" ? "en" : "no");
 
 const en = {
   home: "Home",
@@ -20,6 +21,7 @@ const en = {
   aboutLabel: "About",
   workTogether: "Let's work together",
   allProjects: "All projects",
+  nextProject: "Next project",
   projectNotFound: "Project not found.",
   notFoundTitle: "Oops.",
   notFoundBody: "This page doesn't exist.",
@@ -48,6 +50,7 @@ const no: typeof en = {
   aboutLabel: "Om meg",
   workTogether: "La oss jobbe sammen",
   allProjects: "Alle prosjekter",
+  nextProject: "Neste prosjekt",
   projectNotFound: "Fant ikke prosjektet.",
   notFoundTitle: "Oi.",
   notFoundBody: "Denne siden finnes ikke.",

@@ -12,7 +12,7 @@ export function Header() {
     { href: "/about", label: ui("about") },
   ];
   const pill =
-    "relative inline-flex items-center justify-center px-2.5 py-2.5 text-[15px] transition-transform hover:-translate-y-0.5 sm:px-8 sm:py-3 sm:text-2xl";
+    "relative inline-flex items-center justify-center px-5 py-3.5 text-[19px] transition-transform hover:-translate-y-0.5 sm:px-8 sm:py-3 sm:text-2xl";
   const Ellipse = ({ color, active }: { color: string; active: boolean }) => (
     <svg
       viewBox="0 0 200 80"
@@ -47,7 +47,7 @@ export function Header() {
 
       <div className="mx-auto flex max-w-[1800px] items-center justify-end px-5 py-5 sm:px-10 lg:px-16">
 
-        <nav className="flex items-center gap-0.5 sm:gap-5">
+        <nav className="flex items-center gap-2 sm:gap-5">
           {nav.map((item) => {
             const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
             const color = active ? "var(--accent)" : "var(--ink)";
@@ -61,7 +61,7 @@ export function Header() {
                 <Ellipse color={color} active={active} />
                 <span className="relative font-serif">{item.label}</span>
                 {active && (
-                  <span className="absolute -bottom-2.5 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-accent sm:h-2.5 sm:w-2.5" />
+                  <span className="absolute -bottom-3 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-accent sm:-bottom-2.5 sm:h-2.5 sm:w-2.5" />
                 )}
               </Link>
             );
