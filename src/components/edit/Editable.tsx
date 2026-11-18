@@ -21,16 +21,20 @@ export function T({
   placeholder = "Type here…",
   multiline = false,
   style,
+  fallback,
 }: {
   path: string;
+  /** Shown (and edited from) until this language has its own text; per language, so Norwegian never borrows English. */
+  fallback?: string;
   style?: React.CSSProperties;
   as?: React.ElementType;
   className?: string;
   placeholder?: string;
   multiline?: boolean;
 }) {
-  const { editing, text, setText } = useContent();
-  const value = text(path);
+  const { editing, text, setText, content, lang } = useContent();
+  const own = fallback === undefined ? "" : lang === "no" ? content.no?.[path] : String(getAt(content, path) ?? "");
+  const value = fallback === undefined ? text(path) : own || fallback;
 
   if (!editing) return value ? <Tag className={className} style={style}>{value}</Tag> : null;
 

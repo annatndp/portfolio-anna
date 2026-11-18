@@ -14,7 +14,7 @@ export function HomeView() {
     <>
       <section className="relative flex min-h-svh flex-col items-center justify-center px-5 py-24 sm:px-10 lg:px-16">
         <h1 className="relative z-10 mx-auto max-w-6xl text-center text-5xl font-semibold leading-[1.12] tracking-tight sm:text-7xl lg:text-8xl">
-          <span className="font-serif font-normal italic">{ui("hi")} </span>
+          <T path="site.hi" fallback={ui("hi")} className="font-serif font-normal italic" placeholder="Hi, I'm" />{" "}
           <T path="site.name" className="font-serif font-normal italic" placeholder="Name" />
           <span className="font-serif font-normal italic">,</span>{" "}
           <span className="relative mx-1 inline-block h-[0.85em] w-[1.5em] translate-y-[0.08em] overflow-hidden rounded-full border-2 border-ink align-baseline">
