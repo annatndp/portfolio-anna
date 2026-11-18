@@ -579,15 +579,15 @@ export function CaseStudyView({ slug }: { slug: string }) {
       </div>
 
       {next && next !== project && (
-        <nav className="mt-24 border-t border-ink/15 pt-10 sm:mt-32">
-          <Link href={`/projects/${next.slug}`} className="group flex items-end justify-between gap-6">
+        <nav className="mt-20 flex justify-end sm:mt-28">
+          <Link href={`/projects/${next.slug}`} className="group flex max-w-full items-end gap-3 text-right">
             <span className="min-w-0">
-              <span className="block text-xs font-semibold uppercase tracking-widest text-gray">{ui("nextProject")}</span>
-              <span className="mt-3 block truncate font-serif text-4xl italic transition-colors group-hover:text-accent sm:text-6xl">
+              <span className="block text-[11px] font-semibold uppercase tracking-widest text-gray">{ui("nextProject")}</span>
+              <span className="mt-1 block truncate font-serif text-xl italic transition-colors group-hover:text-accent sm:text-2xl">
                 {text(`projects.${nextIndex}.title`) || next.slug}
               </span>
             </span>
-            <span className="shrink-0 pb-2 text-3xl transition-transform group-hover:translate-x-2 sm:text-4xl" aria-hidden>
+            <span className="shrink-0 pb-0.5 text-xl transition-transform group-hover:translate-x-1 sm:text-2xl" aria-hidden>
               →
             </span>
           </Link>
